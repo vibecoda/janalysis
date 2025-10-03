@@ -13,8 +13,11 @@ cd janalysis
 # Install git hooks (IMPORTANT: Run this after cloning)
 ./setup-hooks.sh
 
+# Use `uv` to create a venv
+uv venv -p 3.13
+
 # Install dependencies
-pip install -e ".[dev]"
+uv pip install -e ".[dev]"
 ```
 
 ### 2. Run Tests
