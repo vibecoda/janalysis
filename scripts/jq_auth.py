@@ -5,7 +5,6 @@ import argparse
 import json
 import os
 
-
 from jqsys.auth import get_id_token, load_refresh_token
 from jqsys.utils.env import load_env_file_if_present
 

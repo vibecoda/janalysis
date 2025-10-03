@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -38,17 +38,19 @@ class JQuantsClient:
         self.headers = build_auth_headers(self.id_token)
 
     @classmethod
-    def from_env(cls) -> "JQuantsClient":
+    def from_env(cls) -> JQuantsClient:
         refresh = load_refresh_token()
         id_tok = get_id_token(refresh)
         return cls(id_token=id_tok)
 
-    def get(self, path: str, params: Optional[Dict[str, Any]] = None) -> requests.Response:
+    def get(self, path: str, params: dict[str, Any] | None = None) -> requests.Response:
         url = f"{self.api_url}{path}"
         res = self.session.get(url, params=params or {}, headers=self.headers, timeout=self.timeout)
         return res
 
-    def get_paginated(self, path: str, data_key: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    def get_paginated(
+        self, path: str, data_key: str, params: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         """Fetch all pages accumulating items under `data_key`.
 
         J-Quants uses `pagination_key` in response; pass it back in params to continue.
@@ -59,7 +61,7 @@ class JQuantsClient:
         payload = res.json()
         if data_key not in payload:
             return []
-        data: List[Dict[str, Any]] = list(payload[data_key])
+        data: list[dict[str, Any]] = list(payload[data_key])
         while "pagination_key" in payload:
             params["pagination_key"] = payload["pagination_key"]
             res = self.get(path, params=params.copy())
@@ -67,4 +69,3 @@ class JQuantsClient:
             payload = res.json()
             data += payload.get(data_key, [])
         return data
-

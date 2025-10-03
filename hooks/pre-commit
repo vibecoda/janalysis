@@ -1,12 +1,49 @@
 #!/bin/bash
 
-# Pre-commit hook to run tests before allowing commits
-# This ensures all tests pass before any commit is made
-
-echo "🧪 Running tests before commit..."
+# Pre-commit hook to run linting, formatting, and tests before allowing commits
+# This ensures code quality and all tests pass before any commit is made
 
 # Change to the repository root directory
 cd "$(git rev-parse --show-toplevel)"
+
+# Check if ruff is installed
+if ! command -v ruff &> /dev/null; then
+    echo "⚠️  Warning: ruff is not installed. Skipping linting and formatting."
+    echo "   Install with: uv pip install ruff"
+else
+    echo "🔍 Running ruff linter..."
+
+    # Run ruff check with auto-fix
+    ruff check --fix .
+    ruff_check_exit=$?
+
+    if [ $ruff_check_exit -ne 0 ]; then
+        echo ""
+        echo "❌ Ruff linting failed! Commit aborted."
+        echo "Please fix the linting errors before committing."
+        exit 1
+    fi
+
+    echo "✨ Formatting code with ruff..."
+
+    # Run ruff format
+    ruff format .
+    ruff_format_exit=$?
+
+    if [ $ruff_format_exit -ne 0 ]; then
+        echo ""
+        echo "❌ Ruff formatting failed! Commit aborted."
+        exit 1
+    fi
+
+    # Stage any changes made by ruff
+    git add -u
+
+    echo "✅ Linting and formatting passed!"
+fi
+
+echo ""
+echo "🧪 Running tests..."
 
 # Run the test suite using the project's test runner
 python run_tests.py
@@ -23,5 +60,5 @@ if [ $test_exit_code -ne 0 ]; then
 fi
 
 echo ""
-echo "✅ All tests passed! Proceeding with commit..."
+echo "✅ All checks passed! Proceeding with commit..."
 exit 0

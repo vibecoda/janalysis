@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-import os
-import tempfile
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-import requests
 
 from jqsys.auth import AuthError, build_auth_headers, get_id_token, load_refresh_token
 
@@ -20,7 +16,7 @@ class TestLoadRefreshToken:
     def test_load_from_dotenv_file(self, tmp_path):
         env_file = tmp_path / ".env"
         env_file.write_text("JQ_REFRESH_TOKEN=dotenv_token_456")
-        
+
         with patch("jqsys.utils.env.Path") as mock_path:
             mock_path.return_value = env_file
             token = load_refresh_token()
@@ -28,7 +24,7 @@ class TestLoadRefreshToken:
 
     def test_missing_token_raises_error(self, monkeypatch):
         monkeypatch.delenv("JQ_REFRESH_TOKEN", raising=False)
-        
+
         with pytest.raises(AuthError, match="Missing refresh token"):
             load_refresh_token(dotenv=False)
 
@@ -47,7 +43,7 @@ class TestGetIdToken:
         mock_post.return_value = mock_response
 
         id_token = get_id_token("refresh_token_123")
-        
+
         assert id_token == "id_token_789"
         mock_post.assert_called_once_with(
             "https://api.jquants.com/v1/token/auth_refresh?refreshtoken=refresh_token_123"
@@ -94,7 +90,7 @@ class TestGetIdToken:
         mock_post.return_value = mock_response
 
         id_token = get_id_token()
-        
+
         assert id_token == "loaded_id_token"
         mock_load.assert_called_once()
         mock_post.assert_called_once_with(
@@ -110,11 +106,9 @@ class TestGetIdToken:
 
         custom_url = "https://custom-api.example.com"
         id_token = get_id_token("token", api_url=custom_url)
-        
+
         assert id_token == "custom_id_token"
-        mock_post.assert_called_once_with(
-            f"{custom_url}/v1/token/auth_refresh?refreshtoken=token"
-        )
+        mock_post.assert_called_once_with(f"{custom_url}/v1/token/auth_refresh?refreshtoken=token")
 
 
 class TestBuildAuthHeaders:

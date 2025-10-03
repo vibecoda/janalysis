@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv pip install:*)",
+      "Bash(ruff check:*)",
+      "Bash(ruff format:*)",
+      "Bash(./setup-hooks.sh)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: add storage abstractions, ruff linting, and docker compose\n\nMajor additions and improvements:\n\nStorage Abstractions:\n- Add BlobStorage API with MinIO backend for binary/file data\n- Add ObjectStorage API with MongoDB backend for document data\n- Both APIs support pluggable backends for easy swapping\n- Include comprehensive demo script for both storage types\n\nInfrastructure:\n- Add docker-compose.yml with MongoDB and MinIO services\n- Configure persistent volumes for data across runs\n- Services optimized for OrbStack usage\n\nCode Quality:\n- Add ruff for linting and formatting\n- Configure ruff with modern Python 3.12+ rules\n- Auto-fix 1,148 linting issues (type hints, imports, etc.)\n- Update pre-commit hook to run ruff before tests\n- Modernize all type annotations (Optional[X] → X | None)\n\nDependencies:\n- Add minio>=7.2.0 for S3-compatible blob storage\n- Add pymongo>=4.6.0 for MongoDB operations\n- Add ruff>=0.8.0 to dev dependencies\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -14,38 +14,37 @@ from datetime import datetime, timedelta
 import polars as pl
 
 from jqsys.storage.bronze import BronzeStorage
-from jqsys.storage.silver import SilverStorage
 from jqsys.storage.query import QueryEngine
+from jqsys.storage.silver import SilverStorage
 from jqsys.utils.env import load_env_file_if_present
 
 # Set up logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 
 def demo_bronze_storage():
     """Demonstrate Bronze storage layer capabilities."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("🥉 BRONZE STORAGE LAYER DEMONSTRATION")
-    print("="*60)
-    
+    print("=" * 60)
+
     bronze = BronzeStorage()
-    
+
     # 1. Show storage statistics
     print("\n📊 Storage Statistics:")
     stats = bronze.get_storage_stats()
     print(f"Total files: {stats['total_files']}")
     print(f"Total size: {stats['total_size_mb']:.2f} MB")
-    
-    for endpoint, endpoint_stats in stats['endpoints'].items():
+
+    for endpoint, endpoint_stats in stats["endpoints"].items():
         print(f"\n  {endpoint}:")
         print(f"    - Dates: {endpoint_stats['dates']}")
         print(f"    - Files: {endpoint_stats['files']}")
         print(f"    - Size: {endpoint_stats['size_mb']:.2f} MB")
-    
+
     # 2. List available dates
     print("\n📅 Available Dates for daily_quotes:")
     available_dates = bronze.list_available_dates("daily_quotes")
@@ -53,7 +52,7 @@ def demo_bronze_storage():
         print(f"First date: {available_dates[0].strftime('%Y-%m-%d')}")
         print(f"Last date: {available_dates[-1].strftime('%Y-%m-%d')}")
         print(f"Total trading days: {len(available_dates)}")
-        
+
         # Show first few and last few dates
         if len(available_dates) > 10:
             print(f"First 5 dates: {[d.strftime('%Y-%m-%d') for d in available_dates[:5]]}")
@@ -63,137 +62,149 @@ def demo_bronze_storage():
     else:
         print("No data available")
         return
-    
+
     # 3. Read raw data for a specific date
     print("\n📖 Reading Raw Data Sample:")
     sample_date = available_dates[0]  # Use first available date
     raw_data = bronze.read_raw_data("daily_quotes", date=sample_date)
-    
+
     if not raw_data.is_empty():
         print(f"Sample date: {sample_date.strftime('%Y-%m-%d')}")
         print(f"Records: {len(raw_data)}")
         print(f"Columns: {raw_data.columns}")
-        
+
         # Show sample records
         print("\nFirst 3 records:")
-        sample_records = raw_data.select([
-            "Code", "Date", "Open", "High", "Low", "Close", "Volume"
-        ]).head(3)
+        sample_records = raw_data.select(
+            ["Code", "Date", "Open", "High", "Low", "Close", "Volume"]
+        ).head(3)
         print(sample_records)
-        
+
         # Show metadata columns
         print("\nMetadata columns:")
-        metadata_cols = [col for col in raw_data.columns if col.startswith('_')]
+        metadata_cols = [col for col in raw_data.columns if col.startswith("_")]
         if metadata_cols:
             metadata_sample = raw_data.select(metadata_cols).head(1)
             print(metadata_sample)
-    
+
     # 4. Read data for a date range
     if len(available_dates) >= 3:
         print("\n📊 Reading Date Range Sample:")
         start_date = available_dates[0]
         end_date = available_dates[2]  # First 3 days
-        
-        range_data = bronze.read_raw_data(
-            "daily_quotes", 
-            date_range=(start_date, end_date)
-        )
-        
+
+        range_data = bronze.read_raw_data("daily_quotes", date_range=(start_date, end_date))
+
         print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
         print(f"Total records: {len(range_data)}")
-        
+
         # Group by date to show daily counts
-        daily_counts = range_data.group_by("Date").agg(
-            pl.len().alias("record_count")
-        ).sort("Date")
+        daily_counts = range_data.group_by("Date").agg(pl.len().alias("record_count")).sort("Date")
         print("Daily record counts:")
         print(daily_counts)
 
 
 def demo_silver_storage():
     """Demonstrate Silver storage layer capabilities."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("🥈 SILVER STORAGE LAYER DEMONSTRATION")
-    print("="*60)
-    
+    print("=" * 60)
+
     bronze = BronzeStorage()
     silver = SilverStorage(bronze_storage=bronze)
-    
+
     # Get available dates from bronze
     available_dates = bronze.list_available_dates("daily_quotes")
     if not available_dates:
         print("No bronze data available for silver layer demo")
         return
-    
+
     # 1. Read normalized daily prices
     print("\n📈 Reading Normalized Daily Prices:")
     start_date = available_dates[0]
     end_date = min(available_dates[-1], start_date + timedelta(days=7))  # First week or all data
-    
+
     daily_prices = silver.read_daily_prices(start_date, end_date)
-    
+
     if not daily_prices.is_empty():
         print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
         print(f"Total records: {len(daily_prices)}")
         print(f"Unique stocks: {daily_prices['code'].n_unique()}")
         print(f"Columns: {daily_prices.columns}")
-        
+
         # Show sample normalized data
         print("\nSample normalized records:")
-        sample_data = daily_prices.select([
-            "code", "date", "open", "high", "low", "close", "volume", "adj_close"
-        ]).head(5)
+        sample_data = daily_prices.select(
+            ["code", "date", "open", "high", "low", "close", "volume", "adj_close"]
+        ).head(5)
         print(sample_data)
-        
+
         # Show data quality metrics
         print("\n🔍 Data Quality Metrics:")
-        quality_stats = daily_prices.select([
-            pl.col("close").null_count().alias("null_closes"),
-            pl.col("volume").null_count().alias("null_volumes"),
-            pl.col("close").min().alias("min_close"),
-            pl.col("close").max().alias("max_close"),
-            pl.col("volume").sum().alias("total_volume")
-        ])
+        quality_stats = daily_prices.select(
+            [
+                pl.col("close").null_count().alias("null_closes"),
+                pl.col("volume").null_count().alias("null_volumes"),
+                pl.col("close").min().alias("min_close"),
+                pl.col("close").max().alias("max_close"),
+                pl.col("volume").sum().alias("total_volume"),
+            ]
+        )
         print(quality_stats)
-        
+
         # Show top stocks by average price
         print("\n💰 Top 10 Stocks by Average Close Price:")
-        top_stocks = daily_prices.group_by("code").agg([
-            pl.col("close").mean().alias("avg_close"),
-            pl.col("volume").mean().alias("avg_volume"),
-            pl.len().alias("trading_days")
-        ]).sort("avg_close", descending=True).head(10)
+        top_stocks = (
+            daily_prices.group_by("code")
+            .agg(
+                [
+                    pl.col("close").mean().alias("avg_close"),
+                    pl.col("volume").mean().alias("avg_volume"),
+                    pl.len().alias("trading_days"),
+                ]
+            )
+            .sort("avg_close", descending=True)
+            .head(10)
+        )
         print(top_stocks)
-    
+
     # 2. Filter by specific stock codes
     if not daily_prices.is_empty():
         print("\n🎯 Filtering by Specific Stock Codes:")
         # Get some sample codes
-        sample_codes = daily_prices['code'].unique().head(3).to_list()
-        
-        filtered_data = silver.read_daily_prices(
-            start_date, end_date, codes=sample_codes
-        )
-        
+        sample_codes = daily_prices["code"].unique().head(3).to_list()
+
+        filtered_data = silver.read_daily_prices(start_date, end_date, codes=sample_codes)
+
         print(f"Sample codes: {sample_codes}")
         print(f"Filtered records: {len(filtered_data)}")
-        
+
         # Show price trends for these stocks
-        price_trends = filtered_data.group_by("code").agg([
-            pl.col("close").first().alias("first_close"),
-            pl.col("close").last().alias("last_close"),
-            ((pl.col("close").last() - pl.col("close").first()) / pl.col("close").first() * 100).alias("return_pct")
-        ]).sort("return_pct", descending=True)
+        price_trends = (
+            filtered_data.group_by("code")
+            .agg(
+                [
+                    pl.col("close").first().alias("first_close"),
+                    pl.col("close").last().alias("last_close"),
+                    (
+                        (pl.col("close").last() - pl.col("close").first())
+                        / pl.col("close").first()
+                        * 100
+                    ).alias("return_pct"),
+                ]
+            )
+            .sort("return_pct", descending=True)
+        )
         print("Price trends (% return):")
         print(price_trends)
 
 
 def demo_query_engine():
     """Demonstrate Query Engine capabilities."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("🔍 QUERY ENGINE DEMONSTRATION")
-    print("="*60)
-    
+    print("=" * 60)
+
     with QueryEngine() as query:
         # 1. Market data coverage
         print("\n📊 Market Data Coverage:")
@@ -203,20 +214,22 @@ def demo_query_engine():
                 print(f"Total trading days: {len(coverage)}")
                 print("Latest 5 trading days:")
                 print(coverage.head(5))
-                
+
                 # Overall statistics
-                total_stats = coverage.select([
-                    pl.col("unique_codes").max().alias("max_stocks"),
-                    pl.col("total_records").sum().alias("total_records"),
-                    pl.col("avg_volume").mean().alias("avg_daily_volume")
-                ])
+                total_stats = coverage.select(
+                    [
+                        pl.col("unique_codes").max().alias("max_stocks"),
+                        pl.col("total_records").sum().alias("total_records"),
+                        pl.col("avg_volume").mean().alias("avg_daily_volume"),
+                    ]
+                )
                 print("\nOverall statistics:")
                 print(total_stats)
             else:
                 print("No coverage data available")
         except Exception as e:
             print(f"Coverage query failed: {e}")
-        
+
         # 2. Price summary statistics
         print("\n📈 Price Summary Statistics:")
         try:
@@ -225,52 +238,52 @@ def demo_query_engine():
                 print(f"Analyzed {len(price_stats)} stocks")
                 print("Top 10 by average close price:")
                 top_by_price = price_stats.sort("avg_close", descending=True).head(10)
-                print(top_by_price.select([
-                    "code", "record_count", "avg_close", "std_close", "total_volume"
-                ]))
-                
+                print(
+                    top_by_price.select(
+                        ["code", "record_count", "avg_close", "std_close", "total_volume"]
+                    )
+                )
+
                 print("\nTop 10 by total volume:")
                 top_by_volume = price_stats.sort("total_volume", descending=True).head(10)
-                print(top_by_volume.select([
-                    "code", "record_count", "avg_close", "total_volume"
-                ]))
+                print(top_by_volume.select(["code", "record_count", "avg_close", "total_volume"]))
             else:
                 print("No price statistics available")
         except Exception as e:
             print(f"Price statistics query failed: {e}")
-        
+
         # 3. Returns calculation
         print("\n📊 Returns Calculation:")
         try:
             # Get a few sample stocks for returns calculation
             sample_stocks = query.execute_sql("""
-                SELECT DISTINCT code 
-                FROM daily_prices 
-                ORDER BY code 
+                SELECT DISTINCT code
+                FROM daily_prices
+                ORDER BY code
                 LIMIT 5
             """)
-            
+
             if len(sample_stocks) > 0:
-                sample_codes = sample_stocks['code'].to_list()
+                sample_codes = sample_stocks["code"].to_list()
                 returns = query.calculate_returns(codes=sample_codes, periods=[1, 5])
-                
+
                 if len(returns) > 0:
                     print(f"Calculated returns for {len(sample_codes)} stocks")
                     print("Sample returns (latest 10 records):")
-                    latest_returns = returns.filter(
-                        pl.col("return_1d").is_not_null()
-                    ).tail(10)
-                    print(latest_returns.select([
-                        "code", "date", "close", "return_1d", "return_5d"
-                    ]))
-                    
+                    latest_returns = returns.filter(pl.col("return_1d").is_not_null()).tail(10)
+                    print(
+                        latest_returns.select(["code", "date", "close", "return_1d", "return_5d"])
+                    )
+
                     # Returns statistics
-                    returns_stats = returns.select([
-                        pl.col("return_1d").mean().alias("avg_1d_return"),
-                        pl.col("return_1d").std().alias("std_1d_return"),
-                        pl.col("return_5d").mean().alias("avg_5d_return"),
-                        pl.col("return_5d").std().alias("std_5d_return")
-                    ])
+                    returns_stats = returns.select(
+                        [
+                            pl.col("return_1d").mean().alias("avg_1d_return"),
+                            pl.col("return_1d").std().alias("std_1d_return"),
+                            pl.col("return_5d").mean().alias("avg_5d_return"),
+                            pl.col("return_5d").std().alias("std_5d_return"),
+                        ]
+                    )
                     print("\nReturns statistics:")
                     print(returns_stats)
                 else:
@@ -279,12 +292,12 @@ def demo_query_engine():
                 print("No stocks available for returns calculation")
         except Exception as e:
             print(f"Returns calculation failed: {e}")
-        
+
         # 4. Custom SQL query
         print("\n🔧 Custom SQL Query Example:")
         try:
             custom_query = """
-            SELECT 
+            SELECT
                 code,
                 COUNT(*) as trading_days,
                 AVG(close) as avg_price,
@@ -296,38 +309,38 @@ def demo_query_engine():
             ORDER BY price_range_pct DESC
             LIMIT 10
             """
-            
+
             custom_result = query.execute_sql(custom_query)
             print("Top 10 stocks by price range percentage:")
             print(custom_result)
         except Exception as e:
             print(f"Custom query failed: {e}")
-        
+
         # 5. Missing data analysis (if we have enough data)
         print("\n🔍 Missing Data Analysis:")
         try:
             # Get date range from available data
             date_range_query = """
-            SELECT 
+            SELECT
                 MIN(date) as min_date,
                 MAX(date) as max_date
             FROM daily_prices
             """
             date_range = query.execute_sql(date_range_query)
-            
+
             if len(date_range) > 0:
-                min_date = datetime.strptime(str(date_range['min_date'][0]), '%Y-%m-%d')
-                max_date = datetime.strptime(str(date_range['max_date'][0]), '%Y-%m-%d')
-                
+                min_date = datetime.strptime(str(date_range["min_date"][0]), "%Y-%m-%d")
+                max_date = datetime.strptime(str(date_range["max_date"][0]), "%Y-%m-%d")
+
                 # Analyze missing data for a few sample stocks
-                sample_codes = query.execute_sql("SELECT DISTINCT code FROM daily_prices LIMIT 3")['code'].to_list()
-                
+                sample_codes = query.execute_sql("SELECT DISTINCT code FROM daily_prices LIMIT 3")[
+                    "code"
+                ].to_list()
+
                 missing_data = query.find_missing_data(
-                    codes=sample_codes,
-                    start_date=min_date,
-                    end_date=max_date
+                    codes=sample_codes, start_date=min_date, end_date=max_date
                 )
-                
+
                 if len(missing_data) > 0:
                     print(f"Found {len(missing_data)} missing data points for sample stocks")
                     print("Sample missing data:")
@@ -342,58 +355,58 @@ def demo_query_engine():
 
 def demo_integration_example():
     """Demonstrate integration between all storage layers."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("🔗 INTEGRATION EXAMPLE")
-    print("="*60)
-    
+    print("=" * 60)
+
     print("\n🎯 End-to-End Data Flow Example:")
     print("Bronze (Raw) → Silver (Normalized) → Query (Analytics)")
-    
+
     bronze = BronzeStorage()
     silver = SilverStorage(bronze_storage=bronze)
-    
+
     # Get available data
     available_dates = bronze.list_available_dates("daily_quotes")
     if not available_dates:
         print("No data available for integration demo")
         return
-    
+
     sample_date = available_dates[0]
-    
+
     # 1. Bronze layer - raw data
     print(f"\n1️⃣ Bronze Layer - Raw data for {sample_date.strftime('%Y-%m-%d')}:")
     raw_data = bronze.read_raw_data("daily_quotes", date=sample_date)
     print(f"   Raw records: {len(raw_data)}")
     print(f"   Raw columns: {len(raw_data.columns)}")
-    
+
     # 2. Silver layer - normalized data
-    print(f"\n2️⃣ Silver Layer - Normalized data:")
+    print("\n2️⃣ Silver Layer - Normalized data:")
     normalized_data = silver.read_daily_prices(sample_date, sample_date)
     print(f"   Normalized records: {len(normalized_data)}")
     print(f"   Data quality: {len(normalized_data)} valid records")
-    
+
     # 3. Query layer - analytics
-    print(f"\n3️⃣ Query Layer - Analytics:")
+    print("\n3️⃣ Query Layer - Analytics:")
     with QueryEngine() as query:
         try:
             # Market summary for the day
             daily_summary = query.execute_sql(f"""
-            SELECT 
+            SELECT
                 COUNT(DISTINCT code) as unique_stocks,
                 AVG(close) as avg_close_price,
                 SUM(volume) as total_volume,
                 MAX(close) as highest_price,
                 MIN(close) as lowest_price
             FROM daily_prices
-            WHERE date = '{sample_date.strftime('%Y-%m-%d')}'
+            WHERE date = '{sample_date.strftime("%Y-%m-%d")}'
             """)
-            
+
             print(f"   Market summary for {sample_date.strftime('%Y-%m-%d')}:")
             print(daily_summary)
-            
+
         except Exception as e:
             print(f"   Analytics query failed: {e}")
-    
+
     print("\n✅ Integration flow completed successfully!")
 
 
@@ -404,42 +417,42 @@ def main() -> int:
         "--layer",
         choices=["bronze", "silver", "query", "integration", "all"],
         default="all",
-        help="Which layer to demonstrate"
+        help="Which layer to demonstrate",
     )
-    
+
     args = parser.parse_args()
-    
+
     # Load environment
     load_env_file_if_present()
-    
+
     print("🏗️ STORAGE APIS DEMONSTRATION")
     print("This demo showcases the capabilities of Bronze, Silver, and Query storage layers")
     print("using data that has already been ingested into the system.")
-    
+
     try:
         if args.layer in ["bronze", "all"]:
             demo_bronze_storage()
-        
+
         if args.layer in ["silver", "all"]:
             demo_silver_storage()
-        
+
         if args.layer in ["query", "all"]:
             demo_query_engine()
-        
+
         if args.layer in ["integration", "all"]:
             demo_integration_example()
-        
-        print("\n" + "="*60)
+
+        print("\n" + "=" * 60)
         print("✅ DEMONSTRATION COMPLETED SUCCESSFULLY")
-        print("="*60)
+        print("=" * 60)
         print("\nKey takeaways:")
         print("• Bronze layer stores raw API responses with full lineage")
         print("• Silver layer provides normalized, validated data for analysis")
         print("• Query engine enables SQL-based analytics with DuckDB")
         print("• All layers work together for comprehensive data management")
-        
+
         return 0
-        
+
     except Exception as e:
         logger.error(f"Demonstration failed: {e}")
         return 1

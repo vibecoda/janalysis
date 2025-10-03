@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Dict
 
 
-def load_env_file_if_present(path: str | Path = ".env") -> Dict[str, str]:
+def load_env_file_if_present(path: str | Path = ".env", override: bool = False) -> dict[str, str]:
     """Load simple KEY=VALUE pairs from a .env file if present.
 
     This avoids adding a dependency on python-dotenv while supporting
@@ -15,7 +14,7 @@ def load_env_file_if_present(path: str | Path = ".env") -> Dict[str, str]:
     Lines starting with '#' are ignored. Quoted values are unquoted.
     """
     env_path = Path(path)
-    loaded: Dict[str, str] = {}
+    loaded: dict[str, str] = {}
     if not env_path.exists():
         return loaded
 
@@ -28,7 +27,9 @@ def load_env_file_if_present(path: str | Path = ".env") -> Dict[str, str]:
         key, value = line.split("=", 1)
         key = key.strip()
         value = value.strip().strip('"').strip("'")
-        os.environ.setdefault(key, value)
+        if override or key not in os.environ:
+            os.environ[key] = value
+        else:
+            os.environ.setdefault(key, value)
         loaded[key] = value
     return loaded
-

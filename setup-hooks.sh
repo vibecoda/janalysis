@@ -45,8 +45,10 @@ else
     echo "✅ Successfully installed $hook_count git hook(s)!"
     echo ""
     echo "Git hooks are now active. Every commit will:"
+    echo "  • Run ruff linting with auto-fix"
+    echo "  • Format code with ruff"
     echo "  • Run all tests automatically"
-    echo "  • Block commits if tests fail"
+    echo "  • Block commits if any checks fail"
     echo "  • Ensure code quality is maintained"
 fi
 

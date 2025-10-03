@@ -2,15 +2,17 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 import pandas as pd
-
 
 from jqsys.client import JQuantsClient
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Fetch daily stock prices (/v1/prices/daily_quotes)")
+    parser = argparse.ArgumentParser(
+        description="Fetch daily stock prices (/v1/prices/daily_quotes)"
+    )
     parser.add_argument("--code", help="Issue code (optional if date is provided)", default="")
     parser.add_argument("--date", help="Date YYYYMMDD (optional)", default="")
     parser.add_argument("--from", dest="from_", help="From date YYYYMMDD", default="")

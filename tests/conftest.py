@@ -12,14 +12,14 @@ def clean_env(monkeypatch):
     # Store original values
     original_values = {}
     env_keys = ["JQ_REFRESH_TOKEN", "API_URL", "CUSTOM_TOKEN"]
-    
+
     for key in env_keys:
         if key in os.environ:
             original_values[key] = os.environ[key]
         monkeypatch.delenv(key, raising=False)
-    
+
     yield
-    
+
     # Restore original values
     for key, value in original_values.items():
         monkeypatch.setenv(key, value)
@@ -34,7 +34,7 @@ def mock_successful_auth_response():
     return mock_response
 
 
-@pytest.fixture 
+@pytest.fixture
 def mock_failed_auth_response():
     """Mock a failed J-Quants auth response."""
     mock_response = Mock()
@@ -63,11 +63,11 @@ def sample_daily_quotes_data():
                 "AdjustmentHigh": 2870.0,
                 "AdjustmentLow": 2835.0,
                 "AdjustmentClose": 2865.0,
-                "AdjustmentVolume": 1234567
+                "AdjustmentVolume": 1234567,
             },
             {
                 "Code": "13010",
-                "Date": "2024-01-15", 
+                "Date": "2024-01-15",
                 "Open": 4200.0,
                 "High": 4250.0,
                 "Low": 4180.0,
@@ -80,8 +80,8 @@ def sample_daily_quotes_data():
                 "AdjustmentHigh": 4250.0,
                 "AdjustmentLow": 4180.0,
                 "AdjustmentClose": 4230.0,
-                "AdjustmentVolume": 567890
-            }
+                "AdjustmentVolume": 567890,
+            },
         ]
     }
 
@@ -97,11 +97,11 @@ def sample_listed_info_data():
                 "CompanyNameEnglish": "Japan Exchange Group, Inc.",
                 "Sector17Code": "7050",
                 "Sector17CodeName": "その他金融業",
-                "Sector33Code": "7050", 
+                "Sector33Code": "7050",
                 "Sector33CodeName": "その他金融業",
                 "ScaleCategory": "TOPIX Large70",
                 "MarketCode": "0111",
-                "MarketCodeName": "プライム"
+                "MarketCodeName": "プライム",
             },
             {
                 "Code": "86970",
@@ -113,8 +113,8 @@ def sample_listed_info_data():
                 "Sector33CodeName": "不動産投信",
                 "ScaleCategory": "TOPIX Mid400",
                 "MarketCode": "0111",
-                "MarketCodeName": "プライム"
-            }
+                "MarketCodeName": "プライム",
+            },
         ]
     }
 
@@ -124,21 +124,12 @@ def sample_trading_calendar_data():
     """Sample trading calendar data matching J-Quants API structure."""
     return {
         "trading_calendar": [
-            {
-                "Date": "2024-01-04",
-                "HolidayDivision": "0"
-            },
-            {
-                "Date": "2024-01-05",
-                "HolidayDivision": "0"
-            },
+            {"Date": "2024-01-04", "HolidayDivision": "0"},
+            {"Date": "2024-01-05", "HolidayDivision": "0"},
             {
                 "Date": "2024-01-06",
-                "HolidayDivision": "1"  # Holiday
+                "HolidayDivision": "1",  # Holiday
             },
-            {
-                "Date": "2024-01-08",
-                "HolidayDivision": "0"
-            }
+            {"Date": "2024-01-08", "HolidayDivision": "0"},
         ]
     }

@@ -5,7 +5,6 @@ import argparse
 
 import pandas as pd
 
-
 from jqsys.client import JQuantsClient
 
 
