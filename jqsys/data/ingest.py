@@ -195,3 +195,81 @@ def transform_daily_prices(
     except Exception as e:
         logger.error(f"Transformation failed: {e}")
         raise
+
+
+def ingest_listed_info(
+    client: JQuantsClient,
+    bronze: BronzeStorage,
+    force: bool = False,
+) -> int:
+    """Ingest listed company info (latest snapshot).
+
+    Note: The /v1/listed/info endpoint returns the latest listed company information
+    for all companies. It does not support date-based queries. The data is stored
+    with today's date as the reference.
+
+    Args:
+        client: Authenticated JQuantsClient instance
+        bronze: BronzeStorage instance for storing raw data
+        force: Force re-ingestion even if data already exists for today
+
+    Returns:
+        Total number of records ingested
+    """
+    processing_date = datetime.now()
+    logger.info(f"Fetching listed info snapshot for {processing_date.strftime('%Y-%m-%d')}")
+
+    # Check if already processed today (unless force)
+    if not force:
+        existing_dates = bronze.list_available_dates("listed_info")
+        # Normalize to midnight for comparison (list_available_dates returns dates at 00:00:00)
+        processing_date_normalized = processing_date.replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        if processing_date_normalized in existing_dates:
+            logger.info(f"Data already exists for {processing_date.strftime('%Y-%m-%d')}, skipping")
+            return 0
+
+    try:
+        # Fetch data from J-Quants API (no date parameter - returns latest)
+        logger.info("Fetching listed info from J-Quants API...")
+        data = client.get_paginated("/v1/listed/info", data_key="info")
+
+        if not data:
+            logger.warning("No data returned from API")
+            return 0
+
+        logger.info(f"Fetched {len(data)} records from API")
+
+        # Store in bronze layer with today's date
+        blob_key = bronze.store_raw_response(
+            endpoint="listed_info",
+            data=data,
+            date=processing_date,
+            metadata={
+                "api_call": "/v1/listed/info",
+                "record_count": len(data),
+                "note": "Latest snapshot - API does not support date filtering",
+            },
+        )
+        logger.info(f"Stored raw data: {blob_key}")
+
+        logger.info(f"Ingestion completed. Total records ingested: {len(data)}")
+
+        # Print storage statistics
+        stats = bronze.get_storage_stats()
+        logger.info("Bronze storage statistics:")
+        for endpoint, info in stats.get("endpoints", {}).items():
+            logger.info(
+                f"Endpoint '{endpoint}': {info['dates']} dates, "
+                f"{info['files']} files, {info['size_mb']} MB"
+            )
+        logger.info(
+            f"Total files: {stats.get('total_files', 0)}, "
+            f"Total size: {stats.get('total_size_mb', 0)} MB"
+        )
+        return len(data)
+
+    except Exception as e:
+        logger.error(f"Failed to ingest listed info: {e}")
+        raise
