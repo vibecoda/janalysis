@@ -30,6 +30,13 @@ from .blob import BlobStorage, BlobStorageBackend
 from .bronze import BronzeStorage
 from .object import ObjectStorage, ObjectStorageBackend, SortOrder
 from .query import QueryEngine
+from .registry import (
+    BackendConfigError,
+    BackendNotFoundError,
+    BlobBackendRegistry,
+    get_blob_backend,
+    get_default_registry,
+)
 from .silver import SilverStorage
 
 __all__ = [
@@ -41,4 +48,9 @@ __all__ = [
     "ObjectStorage",
     "ObjectStorageBackend",
     "SortOrder",
+    "BlobBackendRegistry",
+    "get_blob_backend",
+    "get_default_registry",
+    "BackendConfigError",
+    "BackendNotFoundError",
 ]

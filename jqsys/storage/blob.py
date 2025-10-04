@@ -222,6 +222,36 @@ class BlobStorage:
         self._backend = backend
         self._bucket = bucket
 
+    @classmethod
+    def from_name(cls, name: str, bucket: str = "default") -> BlobStorage:
+        """Create a BlobStorage instance from a named backend configuration.
+
+        This is a convenience method that uses the backend registry to resolve
+        backend names and create instances. Supports hierarchical namespacing
+        with dot notation (e.g., "dev.images.thumbnails").
+
+        Args:
+            name: Backend name, optionally with namespace suffix
+                  Examples: "dev", "dev.images", "dev.images.thumbnails"
+            bucket: Bucket/container name to use (default: "default")
+
+        Returns:
+            BlobStorage instance configured with the named backend
+
+        Raises:
+            BackendNotFoundError: If the backend name is not found
+            BackendConfigError: If the backend configuration is invalid
+
+        Examples:
+            >>> storage = BlobStorage.from_name("dev")
+            >>> storage = BlobStorage.from_name("dev.images.thumbnails")
+            >>> storage = BlobStorage.from_name("minio-local", bucket="my-bucket")
+        """
+        from .registry import get_blob_backend
+
+        backend = get_blob_backend(name)
+        return cls(backend, bucket)
+
     def put(
         self,
         key: str,
