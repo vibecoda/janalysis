@@ -8,6 +8,7 @@ from io import BytesIO
 from typing import BinaryIO
 
 from minio import Minio
+from minio.deleteobjects import DeleteObject
 from minio.error import S3Error
 
 from jqsys.core.storage.blob import (
@@ -160,9 +161,10 @@ class MinIOBackend(BlobStorageBackend):
         results = {}
 
         try:
-            # MinIO's remove_objects returns an iterator of errors
+            # MinIO's remove_objects expects DeleteObject instances
             full_keys = [self._full_key(key) for key in keys]
-            errors = self._client.remove_objects(self._bucket, full_keys)
+            delete_objects = [DeleteObject(key) for key in full_keys]
+            errors = self._client.remove_objects(self._bucket, delete_objects)
 
             # Convert to dict - all keys succeed unless in error list
             error_keys = {err.object_name for err in errors}

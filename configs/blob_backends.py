@@ -56,18 +56,12 @@ CONFIGURATION = {
         "endpoint": "localhost:9000",
         "access_key": os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
         "secret_key": os.getenv("MINIO_SECRET_KEY", "minioadmin"),
-        "bucket": "jqsys-dev",
+        "bucket": "jq-data",
         "secure": False,
-        "prefix": "dev",  # Optional: prefix for all keys
     },
     # Base MinIO configuration for J-Quants data
     "bronze": {
-        "type": "minio",
-        "endpoint": "localhost:9000",
-        "access_key": os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
-        "secret_key": os.getenv("MINIO_SECRET_KEY", "minioadmin"),
-        "bucket": "jq-data",
-        "secure": False,
+        "__inherits__": "minio",
         "prefix": "bronze",
     },
     # Silver inherits from bronze, only overriding prefix

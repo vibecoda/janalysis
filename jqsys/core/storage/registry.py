@@ -116,6 +116,7 @@ class BlobBackendRegistry:
                 bucket=config["bucket"],
                 secure=config.get("secure", True),
                 region=config.get("region"),
+                prefix=config.get("prefix"),
             )
 
         else:
