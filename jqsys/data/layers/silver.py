@@ -7,12 +7,13 @@ optimized for financial analysis and feature engineering.
 from __future__ import annotations
 
 import logging
-import os
 from datetime import datetime, timedelta
-from pathlib import Path
+from io import BytesIO
+from typing import Any
 
 import polars as pl
 
+from jqsys.core.storage.blob import BlobStorage
 from jqsys.data.layers.bronze import BronzeStorage
 
 logger = logging.getLogger(__name__)
@@ -22,26 +23,21 @@ class SilverStorage:
     """Manages silver layer storage for normalized timeseries data."""
 
     def __init__(
-        self, base_path: str | Path | None = None, bronze_storage: BronzeStorage | None = None
+        self, storage: BlobStorage | None = None, bronze_storage: BronzeStorage | None = None
     ):
         """Initialize silver storage.
 
         Args:
-            base_path: Base directory for silver layer storage. If None,
-                      checks JQSYS_DATA_ROOT environment variable,
-                      otherwise defaults to "data/silver"
+            storage: BlobStorage instance to use. If None, uses "silver" backend from config.
             bronze_storage: Bronze storage instance for reading raw data
         """
-        if base_path is None:
-            # Check environment variable first, then default
-            data_root = os.getenv("JQSYS_DATA_ROOT", "data")
-            base_path = Path(data_root) / "silver"
+        if storage is None:
+            storage = BlobStorage.from_name("silver")
 
-        self.base_path = Path(base_path)
-        self.base_path.mkdir(parents=True, exist_ok=True)
+        self.storage = storage
         self.bronze = bronze_storage or BronzeStorage()
 
-    def normalize_daily_quotes(self, date: datetime, force_refresh: bool = False) -> Path | None:
+    def normalize_daily_quotes(self, date: datetime, force_refresh: bool = False) -> str | None:
         """Normalize daily quotes data from bronze to silver layer.
 
         Args:
@@ -49,13 +45,13 @@ class SilverStorage:
             force_refresh: Whether to reprocess existing data
 
         Returns:
-            Path to normalized file or None if no data
+            Blob key of normalized file or None if no data
         """
         # Check if already processed
-        output_path = self._get_silver_path("daily_prices", date)
-        if output_path.exists() and not force_refresh:
+        blob_key = self._get_silver_key("daily_prices", date)
+        if self.storage.exists(blob_key) and not force_refresh:
             logger.info(f"Daily quotes already normalized for {date.strftime('%Y-%m-%d')}")
-            return output_path
+            return blob_key
 
         try:
             # Read raw data from bronze
@@ -70,14 +66,16 @@ class SilverStorage:
             # Validate data quality
             self._validate_daily_quotes(normalized_df, date)
 
-            # Store normalized data
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            normalized_df.write_parquet(output_path, compression="snappy", use_pyarrow=True)
+            # Store normalized data in blob storage
+            buffer = BytesIO()
+            normalized_df.write_parquet(buffer, compression="snappy", use_pyarrow=True)
+            buffer.seek(0)
+            self.storage.put(blob_key, buffer.read(), content_type="application/parquet")
 
             logger.info(
                 f"Normalized {len(normalized_df)} daily quotes records for {date.strftime('%Y-%m-%d')}"
             )
-            return output_path
+            return blob_key
 
         except Exception as e:
             logger.error(f"Failed to normalize daily quotes for {date.strftime('%Y-%m-%d')}: {e}")
@@ -188,21 +186,18 @@ class SilverStorage:
 
         logger.info(f"Data quality validation passed for {len(df)} records")
 
-    def _get_silver_path(self, table: str, date: datetime) -> Path:
-        """Get path for silver layer table file.
+    def _get_silver_key(self, table: str, date: datetime) -> str:
+        """Get blob key for silver layer table file.
 
         Args:
             table: Table name (e.g., 'daily_prices', 'fundamentals')
             date: Date for partitioning
 
         Returns:
-            Path to silver layer file
+            Blob key for silver layer file
         """
-        year = date.strftime("%Y")
-        month = date.strftime("%m")
-        day = date.strftime("%d")
-
-        return self.base_path / table / f"year={year}" / f"month={month}" / f"day={day}.parquet"
+        date_str = date.strftime("%Y-%m-%d")
+        return f"{table}/{date_str}/data.parquet"
 
     def read_daily_prices(
         self, start_date: datetime, end_date: datetime, codes: list[str] | None = None
@@ -217,25 +212,28 @@ class SilverStorage:
         Returns:
             DataFrame with daily prices
         """
-        # Find all relevant files
-        files_to_read = []
+        # Find all relevant blob keys
+        keys_to_read = []
         current_date = start_date
 
         while current_date <= end_date:
-            file_path = self._get_silver_path("daily_prices", current_date)
-            if file_path.exists():
-                files_to_read.append(str(file_path))
+            blob_key = self._get_silver_key("daily_prices", current_date)
+            if self.storage.exists(blob_key):
+                keys_to_read.append(blob_key)
             current_date = current_date + timedelta(days=1)
 
-        if not files_to_read:
+        if not keys_to_read:
             return pl.DataFrame()
 
         # Read and concatenate
         try:
-            if len(files_to_read) == 1:
-                df = pl.read_parquet(files_to_read[0])
-            else:
-                df = pl.concat([pl.read_parquet(f) for f in files_to_read])
+            dataframes = []
+            for key in keys_to_read:
+                blob_data = self.storage.get(key)
+                df = pl.read_parquet(BytesIO(blob_data))
+                dataframes.append(df)
+
+            df = dataframes[0] if len(dataframes) == 1 else pl.concat(dataframes)
 
             # Apply filters
             df = df.filter(
@@ -250,3 +248,80 @@ class SilverStorage:
         except Exception as e:
             logger.error(f"Failed to read daily prices: {e}")
             raise
+
+    def list_available_dates(self, table: str) -> list[datetime]:
+        """List all available dates for a table.
+
+        Args:
+            table: Table name (e.g., 'daily_prices')
+
+        Returns:
+            List of available dates, sorted ascending
+        """
+        dates = []
+
+        # List all blobs with table prefix
+        for blob in self.storage.list(prefix=f"{table}/"):
+            # Parse date from key: table/YYYY-MM-DD/data.parquet
+            if not blob.key.endswith("/data.parquet"):
+                continue
+
+            try:
+                parts = blob.key.split("/")
+                if len(parts) != 3:
+                    continue
+
+                date_str = parts[1]
+                date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                dates.append(date_obj)
+
+            except (ValueError, IndexError):
+                continue
+
+        return sorted(dates)
+
+    def get_storage_stats(self, table: str | None = None) -> dict[str, Any]:
+        """Get storage statistics for silver layer.
+
+        Args:
+            table: Optional table name to filter stats. If None, returns stats for all tables.
+
+        Returns:
+            Dictionary with storage statistics
+        """
+        stats = {"tables": {}, "total_files": 0, "total_size_mb": 0}
+
+        # List all blobs (optionally filtered by table)
+        prefix = f"{table}/" if table else None
+        for blob in self.storage.list(prefix=prefix):
+            # Parse table from key: table/YYYY-MM-DD/data.parquet
+            if not blob.key.endswith("/data.parquet"):
+                continue
+
+            try:
+                parts = blob.key.split("/")
+                if len(parts) != 3:
+                    continue
+
+                table_name = parts[0]
+
+                # Initialize table stats if needed
+                if table_name not in stats["tables"]:
+                    stats["tables"][table_name] = {"dates": 0, "files": 0, "size_mb": 0}
+
+                # Update stats
+                stats["tables"][table_name]["dates"] += 1
+                stats["tables"][table_name]["files"] += 1
+                stats["tables"][table_name]["size_mb"] += blob.size / (1024 * 1024)
+                stats["total_files"] += 1
+                stats["total_size_mb"] += blob.size / (1024 * 1024)
+
+            except (ValueError, IndexError):
+                continue
+
+        # Round size to 2 decimal places
+        stats["total_size_mb"] = round(stats["total_size_mb"], 2)
+        for table_stats in stats["tables"].values():
+            table_stats["size_mb"] = round(table_stats["size_mb"], 2)
+
+        return stats
