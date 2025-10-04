@@ -1,0 +1,19 @@
+{
+    // Let the extension do its job correctly.
+    "python.terminal.activateEnvironment": false,
+    // Point to your interpreter so the extension knows what to activate.
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    // Define a macOS-only profile
+    "terminal.integrated.profiles.osx": {
+        "Bash + IPython (venv-aware)": {
+            "path": "/bin/bash",
+            "args": [
+                "-l",
+                "-c",
+                // If there's a workspace .venv, activate it, then replace the shell with IPython
+                "if [ -f \"${workspaceFolder}/.venv/bin/activate\" ]; then source \"${workspaceFolder}/.venv/bin/activate\"; fi; exec ipython"
+            ]
+        }
+    },
+    "terminal.integrated.defaultProfile.osx": "Bash + IPython (venv-aware)"
+}

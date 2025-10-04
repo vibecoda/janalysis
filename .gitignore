@@ -160,6 +160,7 @@ cython_debug/
 
 # VS Code
 .vscode/
+.vscode
 
 # Parquet files (data)
 *.parquet
