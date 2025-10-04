@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from datetime import datetime
-from pathlib import Path
+from io import BytesIO
 from typing import Any
 
 import polars as pl
+
+from .blob import BlobStorage
 
 logger = logging.getLogger(__name__)
 
@@ -21,21 +22,18 @@ logger = logging.getLogger(__name__)
 class BronzeStorage:
     """Manages bronze layer storage for raw J-Quants API data."""
 
-    def __init__(self, base_path: str | Path | None = None):
+    def __init__(self, storage: BlobStorage | None = None, add_metadata_columns: bool = False):
         """Initialize bronze storage.
 
         Args:
-            base_path: Base directory for bronze layer storage. If None,
-                      checks JQSYS_DATA_ROOT environment variable,
-                      otherwise defaults to "data/bronze"
+            storage: BlobStorage instance to use. If None, uses "bronze" backend from config.
+            add_metadata_columns: If True, adds _endpoint, _partition_date, _ingested_at, _metadata columns
         """
-        if base_path is None:
-            # Check environment variable first, then default
-            data_root = os.getenv("JQSYS_DATA_ROOT", "data")
-            base_path = Path(data_root) / "bronze"
+        if storage is None:
+            storage = BlobStorage.from_name("bronze")
 
-        self.base_path = Path(base_path)
-        self.base_path.mkdir(parents=True, exist_ok=True)
+        self.storage = storage
+        self.add_metadata_columns = add_metadata_columns
 
     def store_raw_response(
         self,
@@ -43,7 +41,7 @@ class BronzeStorage:
         data: list[dict[str, Any]],
         date: datetime,
         metadata: dict[str, Any] | None = None,
-    ) -> Path:
+    ) -> str:
         """Store raw API response data.
 
         Args:
@@ -53,40 +51,45 @@ class BronzeStorage:
             metadata: Optional metadata about the request/response
 
         Returns:
-            Path to stored file
+            Blob key of stored file
         """
-        # Create partitioned path: endpoint/date=YYYY-MM-DD/
+        # Create blob key: endpoint/YYYY-MM-DD/data.parquet
         date_str = date.strftime("%Y-%m-%d")
-        partition_path = self.base_path / endpoint / f"date={date_str}"
-        partition_path.mkdir(parents=True, exist_ok=True)
+        blob_key = f"{endpoint}/{date_str}/data.parquet"
 
         # Convert to Polars DataFrame for efficient storage
         if not data:
             logger.warning(f"No data to store for {endpoint} on {date_str}")
-            return partition_path / "empty.parquet"
-
-        try:
+            # Create empty DataFrame with no columns
+            df = pl.DataFrame()
+        else:
             df = pl.DataFrame(data)
 
-            # Add metadata columns
-            df = df.with_columns(
-                [
-                    pl.lit(endpoint).alias("_endpoint"),
-                    pl.lit(date_str).alias("_partition_date"),
-                    pl.lit(datetime.now().isoformat()).alias("_ingested_at"),
-                ]
-            )
+        try:
+            # Add metadata columns if requested
+            if self.add_metadata_columns:
+                df = df.with_columns(
+                    [
+                        pl.lit(endpoint).alias("_endpoint"),
+                        pl.lit(date_str).alias("_partition_date"),
+                        pl.lit(datetime.now().isoformat()).alias("_ingested_at"),
+                    ]
+                )
 
-            # Add optional metadata as JSON column
-            if metadata:
-                df = df.with_columns(pl.lit(json.dumps(metadata)).alias("_metadata"))
+                # Add optional metadata as JSON column
+                if metadata:
+                    df = df.with_columns(pl.lit(json.dumps(metadata)).alias("_metadata"))
 
-            # Store as Parquet with compression
-            file_path = partition_path / "data.parquet"
-            df.write_parquet(file_path, compression="snappy", use_pyarrow=True)
+            # Serialize to Parquet in memory
+            buffer = BytesIO()
+            df.write_parquet(buffer, compression="snappy", use_pyarrow=True)
+            buffer.seek(0)
 
-            logger.info(f"Stored {len(df)} records to {file_path}")
-            return file_path
+            # Store in blob storage
+            self.storage.put(blob_key, buffer.read(), content_type="application/parquet")
+
+            logger.info(f"Stored {len(df)} records to {blob_key}")
+            return blob_key
 
         except Exception as e:
             logger.error(f"Failed to store {endpoint} data for {date_str}: {e}")
@@ -111,55 +114,57 @@ class BronzeStorage:
         if date and date_range:
             raise ValueError("Cannot specify both date and date_range")
 
-        endpoint_path = self.base_path / endpoint
-        if not endpoint_path.exists():
-            raise FileNotFoundError(f"No data found for endpoint: {endpoint}")
-
-        # Build list of files to read
-        files_to_read = []
+        # Build list of blob keys to read
+        keys_to_read = []
 
         if date:
             # Single date
             date_str = date.strftime("%Y-%m-%d")
-            date_path = endpoint_path / f"date={date_str}" / "data.parquet"
-            if date_path.exists():
-                files_to_read.append(str(date_path))
-        elif date_range:
-            # Date range
-            start_date, end_date = date_range
-            for date_dir in endpoint_path.iterdir():
-                if not date_dir.is_dir() or not date_dir.name.startswith("date="):
+            blob_key = f"{endpoint}/{date_str}/data.parquet"
+            if self.storage.exists(blob_key):
+                keys_to_read.append(blob_key)
+        else:
+            # List all blobs for the endpoint
+            for blob in self.storage.list(prefix=f"{endpoint}/"):
+                # Parse date from key: endpoint/YYYY-MM-DD/data.parquet
+                if not blob.key.endswith("/data.parquet"):
                     continue
 
                 try:
-                    dir_date_str = date_dir.name.split("=")[1]
-                    dir_date = datetime.strptime(dir_date_str, "%Y-%m-%d")
+                    parts = blob.key.split("/")
+                    if len(parts) != 3:
+                        continue
 
-                    if start_date <= dir_date <= end_date:
-                        data_file = date_dir / "data.parquet"
-                        if data_file.exists():
-                            files_to_read.append(str(data_file))
+                    date_str = parts[1]
+                    blob_date = datetime.strptime(date_str, "%Y-%m-%d")
+
+                    # Filter by date range if specified
+                    if date_range:
+                        start_date, end_date = date_range
+                        if not (start_date <= blob_date <= end_date):
+                            continue
+
+                    keys_to_read.append(blob.key)
 
                 except (ValueError, IndexError):
-                    logger.warning(f"Skipping invalid date directory: {date_dir}")
+                    logger.warning(f"Skipping invalid blob key: {blob.key}")
                     continue
-        else:
-            # All data for endpoint
-            for date_dir in endpoint_path.iterdir():
-                if date_dir.is_dir():
-                    data_file = date_dir / "data.parquet"
-                    if data_file.exists():
-                        files_to_read.append(str(data_file))
 
-        if not files_to_read:
+        if not keys_to_read:
             return pl.DataFrame()
 
-        # Read and concatenate all files
+        # Read and concatenate all blobs
         try:
-            if len(files_to_read) == 1:
-                return pl.read_parquet(files_to_read[0])
+            dataframes = []
+            for key in keys_to_read:
+                blob_data = self.storage.get(key)
+                df = pl.read_parquet(BytesIO(blob_data))
+                dataframes.append(df)
+
+            if len(dataframes) == 1:
+                return dataframes[0]
             else:
-                return pl.concat([pl.read_parquet(f) for f in files_to_read])
+                return pl.concat(dataframes)
 
         except Exception as e:
             logger.error(f"Failed to read {endpoint} data: {e}")
@@ -174,22 +179,22 @@ class BronzeStorage:
         Returns:
             List of available dates, sorted ascending
         """
-        endpoint_path = self.base_path / endpoint
-        if not endpoint_path.exists():
-            return []
-
         dates = []
-        for date_dir in endpoint_path.iterdir():
-            if not date_dir.is_dir() or not date_dir.name.startswith("date="):
+
+        # List all blobs with endpoint prefix
+        for blob in self.storage.list(prefix=f"{endpoint}/"):
+            # Parse date from key: endpoint/YYYY-MM-DD/data.parquet
+            if not blob.key.endswith("/data.parquet"):
                 continue
 
             try:
-                date_str = date_dir.name.split("=")[1]
-                date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                parts = blob.key.split("/")
+                if len(parts) != 3:
+                    continue
 
-                # Check if data file exists
-                if (date_dir / "data.parquet").exists():
-                    dates.append(date_obj)
+                date_str = parts[1]
+                date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                dates.append(date_obj)
 
             except (ValueError, IndexError):
                 continue
@@ -204,26 +209,32 @@ class BronzeStorage:
         """
         stats = {"endpoints": {}, "total_files": 0, "total_size_mb": 0}
 
-        for endpoint_dir in self.base_path.iterdir():
-            if not endpoint_dir.is_dir():
+        # List all blobs
+        for blob in self.storage.list():
+            # Parse endpoint from key: endpoint/YYYY-MM-DD/data.parquet
+            if not blob.key.endswith("/data.parquet"):
                 continue
 
-            endpoint_stats = {"dates": 0, "files": 0, "size_mb": 0}
-
-            for date_dir in endpoint_dir.iterdir():
-                if not date_dir.is_dir():
+            try:
+                parts = blob.key.split("/")
+                if len(parts) != 3:
                     continue
 
-                data_file = date_dir / "data.parquet"
-                if data_file.exists():
-                    endpoint_stats["dates"] += 1
-                    endpoint_stats["files"] += 1
-                    endpoint_stats["size_mb"] += data_file.stat().st_size / (1024 * 1024)
+                endpoint = parts[0]
 
-            if endpoint_stats["files"] > 0:
-                stats["endpoints"][endpoint_dir.name] = endpoint_stats
-                stats["total_files"] += endpoint_stats["files"]
-                stats["total_size_mb"] += endpoint_stats["size_mb"]
+                # Initialize endpoint stats if needed
+                if endpoint not in stats["endpoints"]:
+                    stats["endpoints"][endpoint] = {"dates": 0, "files": 0, "size_mb": 0}
+
+                # Update stats
+                stats["endpoints"][endpoint]["dates"] += 1
+                stats["endpoints"][endpoint]["files"] += 1
+                stats["endpoints"][endpoint]["size_mb"] += blob.size / (1024 * 1024)
+                stats["total_files"] += 1
+                stats["total_size_mb"] += blob.size / (1024 * 1024)
+
+            except (ValueError, IndexError):
+                continue
 
         # Round size to 2 decimal places
         stats["total_size_mb"] = round(stats["total_size_mb"], 2)
