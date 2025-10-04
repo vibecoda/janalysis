@@ -4,14 +4,13 @@ from __future__ import annotations
 import argparse
 
 import pandas as pd
-
 from jqsys.client import JQuantsClient
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Fetch financial statements (/v1/fins/statements)")
-    parser.add_argument("--code", help="Issue code (optional if date provided)", default="")
-    parser.add_argument("--date", help="Disclosure date YYYYMMDD (optional)", default="")
+    parser = argparse.ArgumentParser(description="Fetch listed securities info (/v1/listed/info)")
+    parser.add_argument("--code", help="Issue code (optional)", default="")
+    parser.add_argument("--date", help="As of date YYYYMMDD (optional)", default="")
     parser.add_argument("--limit", type=int, default=20, help="Rows to display")
     args = parser.parse_args()
 
@@ -22,7 +21,7 @@ def main() -> int:
     if args.date:
         params["date"] = args.date
 
-    rows = client.get_paginated("/v1/fins/statements", data_key="statements", params=params)
+    rows = client.get_paginated("/v1/listed/info", data_key="info", params=params)
     df = pd.DataFrame(rows)
     if args.limit:
         print(df.head(args.limit).to_string(index=False))

@@ -12,7 +12,6 @@ import logging
 from datetime import datetime, timedelta
 
 import polars as pl
-
 from jqsys.storage.bronze import BronzeStorage
 from jqsys.storage.query import QueryEngine
 from jqsys.storage.silver import SilverStorage

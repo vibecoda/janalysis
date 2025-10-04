@@ -79,8 +79,13 @@ def ingest_daily_quotes(
     # Print storage statistics
     stats = bronze.get_storage_stats()
     logger.info("Bronze storage statistics:")
-    logger.info(f"  Endpoints: {stats['endpoint_count']}")
-    logger.info(f"  Total dates: {stats['total_dates']}")
-    logger.info(f"  Total files: {stats['total_files']}")
-
+    for endpoint, info in stats.get("endpoints", {}).items():
+        logger.info(
+            f"Endpoint '{endpoint}': {info['dates']} dates, "
+            f"{info['files']} files, {info['size_mb']} MB"
+        )
+    logger.info(
+        f"Total files: {stats.get('total_files', 0)}, "
+        f"Total size: {stats.get('total_size_mb', 0)} MB"
+    )
     return total_records
