@@ -8,8 +8,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from jqsys.storage.backends.minio_backend import MinIOBackend
-from jqsys.storage.blob import (
+from jqsys.core.storage.backends.minio_backend import MinIOBackend
+from jqsys.core.storage.blob import (
     BlobNotFoundError,
     BlobStorageConnectionError,
     BlobStorageError,
@@ -19,7 +19,7 @@ from jqsys.storage.blob import (
 class TestMinIOBackendInit:
     """Test MinIO backend initialization."""
 
-    @patch("jqsys.storage.backends.minio_backend.Minio")
+    @patch("jqsys.core.storage.backends.minio_backend.Minio")
     def test_init_creates_bucket_if_not_exists(self, mock_minio_class):
         """Test that initialization creates bucket if it doesn't exist."""
         mock_client = Mock()
@@ -42,7 +42,7 @@ class TestMinIOBackendInit:
 
         assert backend._bucket == "test-bucket"
 
-    @patch("jqsys.storage.backends.minio_backend.Minio")
+    @patch("jqsys.core.storage.backends.minio_backend.Minio")
     def test_init_with_existing_bucket(self, mock_minio_class):
         """Test initialization with existing bucket."""
         mock_client = Mock()
@@ -62,7 +62,7 @@ class TestMinIOBackendInit:
         # Should NOT create bucket
         mock_client.make_bucket.assert_not_called()
 
-    @patch("jqsys.storage.backends.minio_backend.Minio")
+    @patch("jqsys.core.storage.backends.minio_backend.Minio")
     def test_init_with_region(self, mock_minio_class):
         """Test initialization with region parameter."""
         mock_client = Mock()
@@ -80,7 +80,7 @@ class TestMinIOBackendInit:
         # Should create bucket with region
         mock_client.make_bucket.assert_called_once_with("bucket", location="us-west-2")
 
-    @patch("jqsys.storage.backends.minio_backend.Minio")
+    @patch("jqsys.core.storage.backends.minio_backend.Minio")
     def test_init_connection_error(self, mock_minio_class):
         """Test connection error during initialization."""
         from minio.error import S3Error
@@ -111,7 +111,7 @@ class TestMinIOBackendOperations:
     @pytest.fixture
     def mock_backend(self):
         """Create a MinIO backend with mocked client."""
-        with patch("jqsys.storage.backends.minio_backend.Minio") as mock_minio_class:
+        with patch("jqsys.core.storage.backends.minio_backend.Minio") as mock_minio_class:
             mock_client = Mock()
             mock_client.bucket_exists.return_value = True
             mock_minio_class.return_value = mock_client

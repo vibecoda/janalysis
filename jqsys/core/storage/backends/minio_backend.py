@@ -10,7 +10,7 @@ from typing import BinaryIO
 from minio import Minio
 from minio.error import S3Error
 
-from ..blob import (
+from jqsys.core.storage.blob import (
     BlobListResult,
     BlobMetadata,
     BlobNotFoundError,

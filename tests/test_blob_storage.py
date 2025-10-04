@@ -6,9 +6,9 @@ from io import BytesIO
 
 import pytest
 
-from jqsys.storage import BlobStorage
-from jqsys.storage.backends import FilesystemBackend
-from jqsys.storage.blob import BlobNotFoundError
+from jqsys.core.storage import BlobStorage
+from jqsys.core.storage.backends import FilesystemBackend
+from jqsys.core.storage.blob import BlobNotFoundError
 
 
 class TestBlobStorage:
@@ -314,7 +314,7 @@ class TestBlobStorageFromName:
 
     def test_from_name_nonexistent_backend(self):
         """Test error when using non-existent backend."""
-        from jqsys.storage import BackendNotFoundError
+        from jqsys.core.storage import BackendNotFoundError
 
         with pytest.raises(BackendNotFoundError):
             BlobStorage.from_name("nonexistent_backend")

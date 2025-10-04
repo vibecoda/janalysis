@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import BinaryIO
 
-from ..blob import (
+from jqsys.core.storage.blob import (
     BlobListResult,
     BlobMetadata,
     BlobNotFoundError,

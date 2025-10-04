@@ -16,7 +16,7 @@ from pymongo.errors import (
     DuplicateKeyError as MongoDuplicateKeyError,
 )
 
-from ..object import (
+from jqsys.core.storage.object import (
     DuplicateKeyError,
     IndexDefinition,
     InvalidQueryError,

@@ -13,8 +13,8 @@ from typing import Any
 import numpy as np
 import polars as pl
 
-from .stock import InsufficientDataError, Stock
-from .storage.query import QueryEngine
+from jqsys.data.query import QueryEngine
+from jqsys.data.stock import InsufficientDataError, Stock
 
 logger = logging.getLogger(__name__)
 

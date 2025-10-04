@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from jqsys.storage import (
+from jqsys.core.storage import (
     BackendConfigError,
     BackendNotFoundError,
     BlobBackendRegistry,
     BlobStorage,
 )
-from jqsys.storage.backends import FilesystemBackend
+from jqsys.core.storage.backends import FilesystemBackend
 
 
 class TestBlobStorageWithPrefix:
@@ -23,7 +23,7 @@ class TestBlobStorageWithPrefix:
 
     def test_put_with_prefix(self, temp_backend):
         """Test that put adds prefix to key."""
-        from jqsys.storage.backends.prefixed_backend import PrefixedBlobBackend
+        from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
 
         prefixed = PrefixedBlobBackend(temp_backend, "prefix/path")
         storage = BlobStorage(prefixed)
@@ -36,7 +36,7 @@ class TestBlobStorageWithPrefix:
 
     def test_get_with_prefix(self, temp_backend):
         """Test that get uses prefixed key."""
-        from jqsys.storage.backends.prefixed_backend import PrefixedBlobBackend
+        from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
 
         temp_backend.put("prefix/path/file.txt", b"data")
 
@@ -48,7 +48,7 @@ class TestBlobStorageWithPrefix:
 
     def test_delete_with_prefix(self, temp_backend):
         """Test that delete uses prefixed key."""
-        from jqsys.storage.backends.prefixed_backend import PrefixedBlobBackend
+        from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
 
         temp_backend.put("prefix/path/file.txt", b"data")
 
@@ -60,7 +60,7 @@ class TestBlobStorageWithPrefix:
 
     def test_exists_with_prefix(self, temp_backend):
         """Test that exists uses prefixed key."""
-        from jqsys.storage.backends.prefixed_backend import PrefixedBlobBackend
+        from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
 
         temp_backend.put("prefix/path/file.txt", b"data")
 
@@ -72,7 +72,7 @@ class TestBlobStorageWithPrefix:
 
     def test_get_metadata_with_prefix(self, temp_backend):
         """Test that get_metadata uses prefixed key and returns unprefixed."""
-        from jqsys.storage.backends.prefixed_backend import PrefixedBlobBackend
+        from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
 
         temp_backend.put("prefix/path/file.txt", b"data", metadata={"key": "value"})
 
@@ -85,7 +85,7 @@ class TestBlobStorageWithPrefix:
 
     def test_list_blobs_with_prefix(self, temp_backend):
         """Test that list returns unprefixed keys."""
-        from jqsys.storage.backends.prefixed_backend import PrefixedBlobBackend
+        from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
 
         temp_backend.put("prefix/path/file1.txt", b"data1")
         temp_backend.put("prefix/path/file2.txt", b"data2")
@@ -100,7 +100,7 @@ class TestBlobStorageWithPrefix:
 
     def test_list_blobs_with_additional_prefix(self, temp_backend):
         """Test listing with additional user-provided prefix."""
-        from jqsys.storage.backends.prefixed_backend import PrefixedBlobBackend
+        from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
 
         temp_backend.put("prefix/path/docs/file1.txt", b"data1")
         temp_backend.put("prefix/path/docs/file2.txt", b"data2")
@@ -115,7 +115,7 @@ class TestBlobStorageWithPrefix:
 
     def test_delete_many_with_prefix(self, temp_backend):
         """Test batch deletion with prefixed keys."""
-        from jqsys.storage.backends.prefixed_backend import PrefixedBlobBackend
+        from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
 
         temp_backend.put("prefix/path/file1.txt", b"data1")
         temp_backend.put("prefix/path/file2.txt", b"data2")
@@ -130,7 +130,7 @@ class TestBlobStorageWithPrefix:
 
     def test_copy_with_prefix(self, temp_backend):
         """Test copying with prefixed keys."""
-        from jqsys.storage.backends.prefixed_backend import PrefixedBlobBackend
+        from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
 
         temp_backend.put("prefix/path/source.txt", b"data")
 
@@ -143,7 +143,7 @@ class TestBlobStorageWithPrefix:
 
     def test_empty_prefix(self, temp_backend):
         """Test that empty prefix works like no prefix."""
-        from jqsys.storage.backends.prefixed_backend import PrefixedBlobBackend
+        from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
 
         prefixed = PrefixedBlobBackend(temp_backend, "")
         storage = BlobStorage(prefixed)
@@ -155,7 +155,7 @@ class TestBlobStorageWithPrefix:
 
     def test_nested_prefix(self, temp_backend):
         """Test deeply nested prefix."""
-        from jqsys.storage.backends.prefixed_backend import PrefixedBlobBackend
+        from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
 
         prefixed = PrefixedBlobBackend(temp_backend, "level1/level2/level3")
         storage = BlobStorage(prefixed)
@@ -166,7 +166,7 @@ class TestBlobStorageWithPrefix:
 
     def test_prefix_normalization(self, temp_backend):
         """Test that prefix is normalized (trailing slash added)."""
-        from jqsys.storage.backends.prefixed_backend import PrefixedBlobBackend
+        from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
 
         prefixed1 = PrefixedBlobBackend(temp_backend, "prefix")
         prefixed2 = PrefixedBlobBackend(temp_backend, "prefix/")
@@ -235,7 +235,7 @@ class TestBlobBackendRegistry:
             "bucket": "bucket",
         }
 
-        with patch("jqsys.storage.registry.MinIOBackend") as mock_minio:
+        with patch("jqsys.core.storage.registry.MinIOBackend") as mock_minio:
             registry.create_backend(config)
 
             mock_minio.assert_called_once()
@@ -277,7 +277,7 @@ class TestBlobBackendRegistry:
 
     def test_get_backend_with_dotted_name(self, tmp_path):
         """Test getting backend with dotted name returns wrapped backend."""
-        from jqsys.storage.backends.prefixed_backend import PrefixedBlobBackend
+        from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
 
         config = {"dev": {"type": "filesystem", "base_path": str(tmp_path)}}
 
@@ -386,7 +386,7 @@ class TestGlobalRegistryFunctions:
 
     def test_get_default_registry(self):
         """Test getting default global registry."""
-        from jqsys.storage.registry import get_default_registry
+        from jqsys.core.storage.registry import get_default_registry
 
         registry1 = get_default_registry()
         registry2 = get_default_registry()
@@ -396,7 +396,7 @@ class TestGlobalRegistryFunctions:
 
     def test_get_blob_backend(self):
         """Test get_blob_backend convenience function."""
-        from jqsys.storage.registry import get_blob_backend
+        from jqsys.core.storage.registry import get_blob_backend
 
         backend = get_blob_backend("dev")
 

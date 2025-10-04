@@ -4,7 +4,10 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(python -m pytest tests/test_bronze_storage.py -v)",
-      "Bash(python -m pytest tests/ -v --tb=short)"
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(tree:*)",
+      "Bash(git mv:*)",
+      "Bash(python -m pytest tests/ -v --tb=line)"
     ],
     "deny": [],
     "ask": []

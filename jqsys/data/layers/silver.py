@@ -13,7 +13,7 @@ from pathlib import Path
 
 import polars as pl
 
-from .bronze import BronzeStorage
+from jqsys.data.layers.bronze import BronzeStorage
 
 logger = logging.getLogger(__name__)
 

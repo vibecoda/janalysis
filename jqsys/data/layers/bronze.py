@@ -14,7 +14,7 @@ from typing import Any
 
 import polars as pl
 
-from .blob import BlobStorage
+from jqsys.core.storage.blob import BlobStorage
 
 logger = logging.getLogger(__name__)
 

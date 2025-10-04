@@ -13,9 +13,9 @@ from typing import Any
 import numpy as np
 import polars as pl
 
-from .storage.bronze import BronzeStorage
-from .storage.query import QueryEngine
-from .storage.silver import SilverStorage
+from jqsys.data.layers.bronze import BronzeStorage
+from jqsys.data.layers.silver import SilverStorage
+from jqsys.data.query import QueryEngine
 
 logger = logging.getLogger(__name__)
 

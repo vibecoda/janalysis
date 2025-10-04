@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-from jqsys.utils.env import load_env_file_if_present
+from jqsys.core.utils.env import load_env_file_if_present
 
 
 class TestLoadEnvFileIfPresent:
@@ -61,7 +61,7 @@ SINGLE_QUOTED='single_quoted'
         env_file = tmp_path / ".env"
         env_file.write_text("TEST_KEY=test_value")
 
-        with patch("jqsys.utils.env.Path") as mock_path:
+        with patch("jqsys.core.utils.env.Path") as mock_path:
             mock_path.return_value = env_file
 
             result = load_env_file_if_present()

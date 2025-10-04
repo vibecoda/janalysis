@@ -6,10 +6,10 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from .backends.filesystem_backend import FilesystemBackend
-from .backends.minio_backend import MinIOBackend
-from .backends.prefixed_backend import PrefixedBlobBackend
-from .blob import BlobStorageBackend
+from jqsys.core.storage.backends.filesystem_backend import FilesystemBackend
+from jqsys.core.storage.backends.minio_backend import MinIOBackend
+from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
+from jqsys.core.storage.blob import BlobStorageBackend
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class BlobBackendRegistry:
         if configuration is None:
             # Import default configuration
             try:
-                from .blob_config import CONFIGURATION
+                from jqsys.core.storage.blob_config import CONFIGURATION
 
                 configuration = CONFIGURATION
             except ImportError:

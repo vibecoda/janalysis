@@ -8,7 +8,7 @@ import duckdb
 import polars as pl
 import pytest
 
-from jqsys.storage.query import QueryEngine
+from jqsys.data.query import QueryEngine
 
 
 class TestQueryEngine:
@@ -55,7 +55,7 @@ class TestQueryEngine:
         query_engine.close()
 
     def test_setup_extensions(self, tmp_path):
-        with patch("jqsys.storage.query.logger") as mock_logger:
+        with patch("jqsys.data.query.logger") as mock_logger:
             query_engine = QueryEngine(
                 db_path=None, bronze_path=tmp_path / "bronze", silver_path=tmp_path / "silver"
             )
@@ -68,7 +68,7 @@ class TestQueryEngine:
         with patch.object(duckdb.DuckDBPyConnection, "execute") as mock_execute:
             mock_execute.side_effect = Exception("Extension error")
 
-            with patch("jqsys.storage.query.logger") as mock_logger:
+            with patch("jqsys.data.query.logger") as mock_logger:
                 query_engine = QueryEngine(
                     db_path=None, bronze_path=tmp_path / "bronze", silver_path=tmp_path / "silver"
                 )
@@ -92,7 +92,7 @@ class TestQueryEngine:
         bronze_dir.mkdir(parents=True)
         dummy_df.write_parquet(bronze_dir / "data.parquet")
 
-        with patch("jqsys.storage.query.logger") as mock_logger:
+        with patch("jqsys.data.query.logger") as mock_logger:
             query_engine = QueryEngine(
                 db_path=None, bronze_path=tmp_path / "bronze", silver_path=tmp_path / "silver"
             )
@@ -103,7 +103,7 @@ class TestQueryEngine:
 
     def test_create_data_views_warning(self, tmp_path):
         # Test view creation with invalid paths (should warn but not fail)
-        with patch("jqsys.storage.query.logger") as mock_logger:
+        with patch("jqsys.data.query.logger") as mock_logger:
             query_engine = QueryEngine(
                 db_path=None,
                 bronze_path=tmp_path / "nonexistent_bronze",
@@ -391,7 +391,7 @@ class TestQueryEngine:
             db_path=None, bronze_path=tmp_path / "bronze", silver_path=tmp_path / "silver"
         )
 
-        with patch("jqsys.storage.query.logger") as mock_logger:
+        with patch("jqsys.data.query.logger") as mock_logger:
             query_engine.close()
             mock_logger.info.assert_called_with("Query engine connection closed")
 

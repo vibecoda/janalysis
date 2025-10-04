@@ -7,7 +7,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from .auth import API_URL, build_auth_headers, get_id_token, load_refresh_token
+from jqsys.data.auth import API_URL, build_auth_headers, get_id_token, load_refresh_token
 
 
 def _session_with_retries(total: int = 3, backoff: float = 0.5) -> requests.Session:

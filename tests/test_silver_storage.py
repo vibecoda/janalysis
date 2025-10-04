@@ -7,8 +7,8 @@ from unittest.mock import Mock, patch
 import polars as pl
 import pytest
 
-from jqsys.storage.bronze import BronzeStorage
-from jqsys.storage.silver import SilverStorage
+from jqsys.data.layers.bronze import BronzeStorage
+from jqsys.data.layers.silver import SilverStorage
 
 
 class TestSilverStorage:
@@ -119,7 +119,7 @@ class TestSilverStorage:
         # Mock bronze storage to return empty data
         mock_bronze_storage.read_raw_data = Mock(return_value=pl.DataFrame())
 
-        with patch("jqsys.storage.silver.logger") as mock_logger:
+        with patch("jqsys.data.layers.silver.logger") as mock_logger:
             result = storage.normalize_daily_quotes(test_date)
 
             assert result is None
@@ -138,7 +138,7 @@ class TestSilverStorage:
         file_path1 = storage.normalize_daily_quotes(test_date)
 
         # Second normalization (should skip)
-        with patch("jqsys.storage.silver.logger") as mock_logger:
+        with patch("jqsys.data.layers.silver.logger") as mock_logger:
             file_path2 = storage.normalize_daily_quotes(test_date)
 
             assert file_path1 == file_path2
@@ -286,7 +286,7 @@ class TestSilverStorage:
             }
         )
 
-        with patch("jqsys.storage.silver.logger") as mock_logger:
+        with patch("jqsys.data.layers.silver.logger") as mock_logger:
             # Should not raise exception, just warn
             storage._validate_daily_quotes(high_price_df, datetime(2024, 1, 15))
             mock_logger.warning.assert_called()
@@ -391,7 +391,7 @@ class TestSilverStorage:
         # Mock bronze storage to raise an exception
         mock_bronze_storage.read_raw_data = Mock(side_effect=Exception("Bronze read error"))
 
-        with patch("jqsys.storage.silver.logger") as mock_logger:
+        with patch("jqsys.data.layers.silver.logger") as mock_logger:
             with pytest.raises(Exception):
                 storage.normalize_daily_quotes(test_date)
             mock_logger.error.assert_called()

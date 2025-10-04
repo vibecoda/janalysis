@@ -248,7 +248,7 @@ class BlobStorage:
             >>> storage = BlobStorage.from_name("dev")
             >>> storage = BlobStorage.from_name("dev.images.thumbnails")
         """
-        from .registry import get_blob_backend
+        from jqsys.core.storage.registry import get_blob_backend
 
         backend = get_blob_backend(name)
         return cls(backend)

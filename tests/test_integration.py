@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from unittest.mock import Mock, patch
 
-from jqsys.auth import get_id_token
-from jqsys.client import JQuantsClient
+from jqsys.data.auth import get_id_token
+from jqsys.data.client import JQuantsClient
 
 
 class TestIntegration:
     """Integration tests that test the interaction between auth and client modules."""
 
-    @patch("jqsys.auth.requests.post")
+    @patch("jqsys.data.auth.requests.post")
     def test_full_auth_and_client_flow(self, mock_post):
         # Mock the auth response
         mock_auth_response = Mock()
@@ -57,8 +57,8 @@ class TestIntegration:
             assert result[1]["Code"] == "13020"
             assert client.headers["Authorization"] == "Bearer integration_test_token"
 
-    @patch("jqsys.client.get_id_token")
-    @patch("jqsys.client.load_refresh_token")
+    @patch("jqsys.data.client.get_id_token")
+    @patch("jqsys.data.client.load_refresh_token")
     def test_client_from_env_integration(self, mock_load_refresh, mock_get_id):
         """Test JQuantsClient.from_env() method integration."""
         mock_load_refresh.return_value = "env_refresh_token"

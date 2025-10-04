@@ -4,7 +4,7 @@ import os
 
 import requests
 
-from .utils.env import load_env_file_if_present
+from jqsys.core.utils.env import load_env_file_if_present
 
 API_URL = "https://api.jquants.com"
 

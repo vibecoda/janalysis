@@ -7,9 +7,9 @@ from unittest.mock import patch
 import polars as pl
 import pytest
 
-from jqsys.storage.backends.filesystem_backend import FilesystemBackend
-from jqsys.storage.blob import BlobStorage
-from jqsys.storage.bronze import BronzeStorage
+from jqsys.core.storage.backends.filesystem_backend import FilesystemBackend
+from jqsys.core.storage.blob import BlobStorage
+from jqsys.data.layers.bronze import BronzeStorage
 
 
 @pytest.fixture
@@ -82,7 +82,7 @@ class TestBronzeStorage:
         bronze = BronzeStorage(storage=blob_storage)
         date = datetime(2024, 1, 15)
 
-        with patch("jqsys.storage.bronze.logger") as mock_logger:
+        with patch("jqsys.data.layers.bronze.logger") as mock_logger:
             blob_key = bronze.store_raw_response(endpoint="daily_quotes", data=[], date=date)
 
             expected_key = "daily_quotes/2024-01-15/data.parquet"
@@ -97,10 +97,10 @@ class TestBronzeStorage:
         date = datetime(2024, 1, 15)
 
         # Mock DataFrame.write_parquet to raise an exception
-        with patch("jqsys.storage.bronze.pl.DataFrame.write_parquet") as mock_write:
+        with patch("jqsys.data.layers.bronze.pl.DataFrame.write_parquet") as mock_write:
             mock_write.side_effect = Exception("Write failed")
 
-            with patch("jqsys.storage.bronze.logger") as mock_logger:
+            with patch("jqsys.data.layers.bronze.logger") as mock_logger:
                 with pytest.raises(Exception):
                     bronze.store_raw_response(
                         endpoint="daily_quotes", data=[{"Code": "1301", "Close": 100.0}], date=date
@@ -257,7 +257,7 @@ class TestBronzeStorage:
         # Store some invalid blobs
         blob_storage.put("daily_quotes/invalid-format/data.parquet", b"invalid")
 
-        with patch("jqsys.storage.bronze.logger"):
+        with patch("jqsys.data.layers.bronze.logger"):
             df = bronze.read_raw_data("daily_quotes")
 
             assert df.is_empty()

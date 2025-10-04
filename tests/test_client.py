@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from jqsys.client import JQuantsClient
+from jqsys.data.client import JQuantsClient
 
 
 class TestJQuantsClient:
@@ -27,8 +27,8 @@ class TestJQuantsClient:
         assert client.api_url == "https://custom.api.com"
         assert client.timeout == 60.0
 
-    @patch("jqsys.client.get_id_token")
-    @patch("jqsys.client.load_refresh_token")
+    @patch("jqsys.data.client.get_id_token")
+    @patch("jqsys.data.client.load_refresh_token")
     def test_from_env_classmethod(self, mock_load_refresh, mock_get_id):
         mock_load_refresh.return_value = "refresh_token"
         mock_get_id.return_value = "id_token_from_env"
@@ -178,7 +178,7 @@ class TestGetPaginated:
 
 class TestSessionWithRetries:
     def test_session_created_with_retries(self):
-        from jqsys.client import _session_with_retries
+        from jqsys.data.client import _session_with_retries
 
         session = _session_with_retries()
 
@@ -188,7 +188,7 @@ class TestSessionWithRetries:
         assert "http://" in session.adapters
 
     def test_custom_retry_params(self):
-        from jqsys.client import _session_with_retries
+        from jqsys.data.client import _session_with_retries
 
         session = _session_with_retries(total=5, backoff=1.0)
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import BinaryIO
 
-from ..blob import BlobListResult, BlobMetadata, BlobStorageBackend
+from jqsys.core.storage.blob import BlobListResult, BlobMetadata, BlobStorageBackend
 
 
 class PrefixedBlobBackend(BlobStorageBackend):
