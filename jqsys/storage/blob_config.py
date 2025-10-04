@@ -38,6 +38,15 @@ CONFIGURATION = {
         "secure": False,
         "prefix": "dev",  # Optional: prefix for all keys
     },
+    "bronze": {
+        "type": "minio",
+        "endpoint": "localhost:9000",
+        "access_key": os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
+        "secret_key": os.getenv("MINIO_SECRET_KEY", "minioadmin"),
+        "bucket": "jq-data",
+        "secure": False,
+        "prefix": "bronze",
+    },
     # Example production MinIO/S3 configuration
     "prod": {
         "type": "minio",
