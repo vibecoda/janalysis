@@ -7,6 +7,7 @@ from datetime import date, datetime
 
 from jqsys.data.client import JQuantsClient
 from jqsys.data.layers.bronze import BronzeStorage
+from jqsys.data.layers.gold import GoldStorage
 from jqsys.data.layers.silver import SilverStorage
 
 logger = logging.getLogger(__name__)
@@ -146,3 +147,51 @@ def normalize_daily_quotes(
         f"Total size: {stats.get('total_size_mb', 0)} MB"
     )
     return successful_dates
+
+
+def transform_daily_prices(
+    gold: GoldStorage,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    force: bool = False,
+) -> dict[str, int]:
+    """Transform silver layer daily prices to gold layer stock-centric format.
+
+    Args:
+        gold: GoldStorage instance for storing transformed data
+        start_date: Start date for transformation (inclusive). If None, process all available dates.
+        end_date: End date for transformation (inclusive). If None, use latest available date.
+        force: Force re-transformation even if data already exists
+
+    Returns:
+        Dictionary with transformation statistics
+    """
+    logger.info("Transforming daily prices from silver to gold layer")
+
+    try:
+        # Transform the data
+        stats = gold.transform_daily_prices(
+            start_date=start_date, end_date=end_date, force_refresh=force
+        )
+
+        logger.info(
+            f"Transformation completed: {stats['dates_processed']} dates, "
+            f"{stats['stocks_updated']} stocks updated, "
+            f"{stats['records_written']} records written"
+        )
+
+        # Print storage statistics
+        storage_stats = gold.get_storage_stats()
+        logger.info("Gold storage statistics:")
+        logger.info(
+            f"Total stocks: {len(storage_stats['stocks'])}, "
+            f"Total files: {storage_stats['total_files']}, "
+            f"Total records: {storage_stats['total_records']}, "
+            f"Total size: {storage_stats['total_size_mb']} MB"
+        )
+
+        return stats
+
+    except Exception as e:
+        logger.error(f"Transformation failed: {e}")
+        raise
