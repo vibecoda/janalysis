@@ -1,6 +1,6 @@
 # Janalysis
 
-Lightweight J-Quants utilities for CLI demos and financial analysis with automated testing.
+Tools for financial analysis of Japanese Equities. Currently contains integation with JQuants API to fetch, normalize and store stock data. Also contains, a framework to store blob storage using different backends.
 
 ## Quick Start
 
@@ -63,43 +63,83 @@ chmod +x .git/hooks/pre-commit
 ## Development
 
 The repository includes:
-- **Bronze Layer**: Raw data storage with partitioning
-- **Silver Layer**: Normalized and validated data  
-- **Query Engine**: SQL interface for financial analysis
+- **Three-layer Data Architecture**: Bronze (raw) → Silver (normalized) → Gold (stock-centric)
+- **Blob Storage Infrastructure**: Pluggable backends (filesystem, MinIO, MongoDB)
+- **Backend Registry**: Configuration-driven storage with inheritance support
+- **Query Engine**: SQL interface for financial analysis (DuckDB)
 - **Stock & Portfolio APIs**: High-level analysis tools
-- **Comprehensive Tests**: 112+ tests ensuring reliability
+- **Comprehensive Tests**: 231 tests ensuring reliability
 
 ### Project Structure
 
 ```
 jqsys/
-├── auth.py          # Authentication utilities
-├── client.py        # J-Quants API client
-├── stock.py         # Stock analysis API
-├── portfolio.py     # Portfolio management API
-└── storage/
-    ├── bronze.py    # Raw data storage
-    ├── silver.py    # Normalized data storage
-    └── query.py     # SQL query engine
+├── core/                    # Core infrastructure
+│   ├── storage/            # Storage abstraction layer
+│   │   ├── blob.py         # Blob storage interface
+│   │   ├── registry.py     # Backend registry
+│   │   └── backends/       # Storage backend implementations
+│   │       ├── filesystem_backend.py
+│   │       ├── minio_backend.py
+│   │       ├── mongodb_backend.py
+│   │       └── prefixed_backend.py
+│   └── utils/              # Shared utilities
+│       ├── config.py       # Configuration with inheritance
+│       └── env.py          # Environment variables
+└── data/                    # Data layer
+    ├── auth.py             # J-Quants authentication
+    ├── client.py           # J-Quants API client
+    ├── ingest.py           # Data ingestion utilities
+    ├── layers/             # Storage layers
+    │   ├── bronze.py       # Raw data storage
+    │   ├── silver.py       # Normalized data storage
+    │   └── gold.py         # Stock-centric storage
+    ├── query.py            # SQL query engine
+    ├── stock.py            # Stock analysis API
+    └── portfolio.py        # Portfolio management API
 ```
 
 ### Environment Variables
 
-Configure data directory location:
+```bash
+# Required for J-Quants API access
+export JQ_REFRESH_TOKEN=your_token_here
+```
+
+### Using MinIO Backend with Docker Compose
+
+The project includes a MinIO backend for object storage. To use it locally:
 
 ```bash
-# Optional: Set custom data directory
-export JQSYS_DATA_ROOT=/path/to/your/data
+# Start MinIO (and MongoDB) services
+docker compose up -d
 
-# Required for API access
-export JQUANTS_REFRESH_TOKEN=your_token_here
+# Verify MinIO is running
+docker compose ps
+
+# Access MinIO console at http://localhost:9001
+# Login: minioadmin / minioadmin
+```
+
+The MinIO backend is configured in `configs/blob_backends.py` with the following backends:
+- `minio`: Base MinIO configuration (localhost:9000, bucket: jq-data)
+- `bronze`, `silver`, `gold`: Storage layers with automatic prefix separation
+  - Each layer uses the same bucket but different prefixes (bronze/, silver/, gold/)
+  - Configuration uses inheritance to avoid duplication
+
+To stop the services:
+
+```bash
+docker compose down
 ```
 
 ## Testing
 
-The test suite includes 112+ comprehensive tests covering:
+The test suite includes comprehensive tests covering:
 - Authentication and API client functionality
-- Data storage and retrieval (Bronze/Silver layers)
+- Blob storage backends (filesystem, MinIO, prefixed)
+- Backend registry with configuration inheritance
+- Data storage layers (Bronze/Silver/Gold)
 - SQL query engine with security testing
 - Integration tests with realistic data
 - Environment variable configuration
@@ -109,14 +149,3 @@ Run tests with detailed output:
 ```bash
 python run_tests.py
 ```
-
-## Contributing
-
-1. Clone the repository
-2. **Run `./setup-hooks.sh`** (essential for development)
-3. Install dependencies: `pip install -e ".[dev]"`
-4. Make your changes
-5. Tests will run automatically on commit
-6. Create a pull request
-
-The pre-commit hook ensures all tests pass before allowing commits, maintaining code quality and preventing regressions.
