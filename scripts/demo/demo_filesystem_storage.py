@@ -7,8 +7,8 @@ import tempfile
 from io import BytesIO
 from pathlib import Path
 
-from jqsys.storage.backends import FilesystemBackend
-from jqsys.storage.blob import BlobStorage
+from jqsys.core.storage.backends import FilesystemBackend
+from jqsys.core.storage.blob import BlobStorage
 
 
 def demo_filesystem_storage():
@@ -23,7 +23,7 @@ def demo_filesystem_storage():
 
         # Initialize filesystem backend
         backend = FilesystemBackend(base_path=tmpdir)
-        blob_storage = BlobStorage(backend, bucket="demo-bucket")
+        blob_storage = BlobStorage(backend)
 
         # 1. Store some blobs
         print("\n1️⃣  Storing blobs...")

@@ -12,10 +12,11 @@ import logging
 from datetime import datetime, timedelta
 
 import polars as pl
-from jqsys.storage.bronze import BronzeStorage
-from jqsys.storage.query import QueryEngine
-from jqsys.storage.silver import SilverStorage
-from jqsys.utils.env import load_env_file_if_present
+
+from jqsys.core.utils.env import load_env_file_if_present
+from jqsys.data.layers.bronze import BronzeStorage
+from jqsys.data.layers.silver import SilverStorage
+from jqsys.data.query import QueryEngine
 
 # Set up logging
 logging.basicConfig(
@@ -458,4 +459,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    exit(main())
+    main()

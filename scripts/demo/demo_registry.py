@@ -6,7 +6,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from jqsys.storage import BlobBackendRegistry, BlobStorage
+from jqsys.core.storage import BlobBackendRegistry, BlobStorage
 
 
 def demo_basic_usage():
@@ -150,7 +150,7 @@ def demo_registry_features():
     print("Demo 4: Registry Features")
     print("=" * 70)
 
-    from jqsys.storage import get_default_registry
+    from jqsys.core.storage import get_default_registry
 
     registry = get_default_registry()
 
@@ -186,7 +186,7 @@ def demo_error_handling():
     print("Demo 5: Error Handling")
     print("=" * 70)
 
-    from jqsys.storage import BackendNotFoundError
+    from jqsys.core.storage import BackendNotFoundError
 
     print("\n1️⃣  Attempting to use non-existent backend:")
     try:
