@@ -2,11 +2,29 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
 
-from jqsys.client import JQuantsClient
+from jqsys.data.client import JQuantsClient
+
+
+def get_default_date() -> str:
+    """Get a default date that is a weekday at least 12 weeks earlier.
+
+    Returns:
+        Date string in YYYYMMDD format
+    """
+    # Start from 12 weeks ago
+    date = datetime.now() - timedelta(weeks=12)
+
+    # If it's a weekend, move to previous Friday
+    # Monday=0, Sunday=6
+    while date.weekday() >= 5:  # Saturday=5, Sunday=6
+        date -= timedelta(days=1)
+
+    return date.strftime("%Y%m%d")
 
 
 def main() -> int:
@@ -14,7 +32,11 @@ def main() -> int:
         description="Fetch daily stock prices (/v1/prices/daily_quotes)"
     )
     parser.add_argument("--code", help="Issue code (optional if date is provided)", default="")
-    parser.add_argument("--date", help="Date YYYYMMDD (optional)", default="")
+    parser.add_argument(
+        "--date",
+        help="Date YYYYMMDD (defaults to a weekday at least 12 weeks ago)",
+        default="",
+    )
     parser.add_argument("--from", dest="from_", help="From date YYYYMMDD", default="")
     parser.add_argument("--to", help="To date YYYYMMDD", default="")
     parser.add_argument("--save", help="Path to save CSV/Parquet (by extension)", default="")
@@ -25,8 +47,13 @@ def main() -> int:
     params = {}
     if args.code:
         params["code"] = args.code
-    if args.date:
-        params["date"] = args.date
+
+    # Use provided date or default to a weekday 12 weeks ago
+    date = args.date if args.date else get_default_date()
+    if date:
+        params["date"] = date
+        print(f"Fetching data for date: {date}")
+
     if args.from_:
         params["from"] = args.from_
     if args.to:

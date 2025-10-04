@@ -7,9 +7,11 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from jqsys.storage.bronze import BronzeStorage
-from jqsys.storage.query import QueryEngine
-from jqsys.storage.silver import SilverStorage
+from jqsys.core.storage import BlobStorage
+from jqsys.core.storage.backends import FilesystemBackend
+from jqsys.data.layers.bronze import BronzeStorage
+from jqsys.data.layers.silver import SilverStorage
+from jqsys.data.query import QueryEngine
 
 
 def create_sample_data() -> list[dict]:
@@ -43,7 +45,10 @@ def test_bronze_layer():
     """Test bronze layer storage functionality."""
     print("🟤 Testing Bronze Layer Storage...")
 
-    bronze = BronzeStorage("data/bronze")
+    # Create BlobStorage with filesystem backend
+    backend = FilesystemBackend(base_path="data/bronze")
+    blob_storage = BlobStorage(backend=backend)
+    bronze = BronzeStorage(storage=blob_storage)
     sample_data = create_sample_data()
     test_date = datetime(2024, 1, 15)
 
@@ -78,7 +83,9 @@ def test_silver_layer():
     print("\n🥈 Testing Silver Layer Storage...")
 
     # Set up bronze layer with test data first
-    bronze = BronzeStorage("data/bronze")
+    backend = FilesystemBackend(base_path="data/bronze")
+    blob_storage = BlobStorage(backend=backend)
+    bronze = BronzeStorage(storage=blob_storage)
     sample_data = create_sample_data()
     test_date = datetime(2024, 1, 15)
 
@@ -147,7 +154,9 @@ def test_integration():
 
     try:
         # Test bronze layer
-        bronze = BronzeStorage("data/bronze")
+        backend = FilesystemBackend(base_path="data/bronze")
+        blob_storage = BlobStorage(backend=backend)
+        bronze = BronzeStorage(storage=blob_storage)
         sample_data = create_sample_data()
         test_date = datetime(2024, 1, 15)
 

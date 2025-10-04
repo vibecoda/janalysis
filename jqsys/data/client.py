@@ -7,6 +7,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from jqsys.core.utils.env import load_env_file_if_present
 from jqsys.data.auth import API_URL, build_auth_headers, get_id_token, load_refresh_token
 
 
@@ -69,3 +70,10 @@ class JQuantsClient:
             payload = res.json()
             data += payload.get(data_key, [])
         return data
+
+
+def get_client_from_env() -> JQuantsClient:
+    load_env_file_if_present()
+    refresh_token = load_refresh_token()
+    id_token = get_id_token(refresh_token)
+    return JQuantsClient(id_token)
