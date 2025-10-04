@@ -114,9 +114,16 @@ class TestGoldStorage:
         mock_silver_storage.list_available_dates = Mock(
             return_value=list(sample_silver_data.keys())
         )
-        mock_silver_storage.read_daily_prices = Mock(
-            side_effect=lambda start, end: sample_silver_data.get(start, pl.DataFrame())
-        )
+
+        def mock_read_daily_prices(start, end):
+            # Concatenate all data in the date range
+            dfs = []
+            for date_key, df in sample_silver_data.items():
+                if start <= date_key <= end:
+                    dfs.append(df)
+            return pl.concat(dfs) if dfs else pl.DataFrame()
+
+        mock_silver_storage.read_daily_prices = Mock(side_effect=mock_read_daily_prices)
 
         # Transform data
         stats = storage.transform_daily_prices()
@@ -144,9 +151,15 @@ class TestGoldStorage:
         mock_silver_storage.list_available_dates = Mock(
             return_value=list(sample_silver_data.keys())
         )
-        mock_silver_storage.read_daily_prices = Mock(
-            side_effect=lambda start, end: sample_silver_data.get(start, pl.DataFrame())
-        )
+
+        def mock_read_daily_prices(start, end):
+            dfs = []
+            for date_key, df in sample_silver_data.items():
+                if start <= date_key <= end:
+                    dfs.append(df)
+            return pl.concat(dfs) if dfs else pl.DataFrame()
+
+        mock_silver_storage.read_daily_prices = Mock(side_effect=mock_read_daily_prices)
 
         # Transform only first date
         stats = storage.transform_daily_prices(
@@ -177,9 +190,15 @@ class TestGoldStorage:
         # Mock silver storage
         all_dates = list(sample_silver_data.keys())
         mock_silver_storage.list_available_dates = Mock(return_value=all_dates)
-        mock_silver_storage.read_daily_prices = Mock(
-            side_effect=lambda start, end: sample_silver_data.get(start, pl.DataFrame())
-        )
+
+        def mock_read_daily_prices(start, end):
+            dfs = []
+            for date_key, df in sample_silver_data.items():
+                if start <= date_key <= end:
+                    dfs.append(df)
+            return pl.concat(dfs) if dfs else pl.DataFrame()
+
+        mock_silver_storage.read_daily_prices = Mock(side_effect=mock_read_daily_prices)
 
         # First transformation - process first date
         stats1 = storage.transform_daily_prices(start_date=all_dates[0], end_date=all_dates[0])
@@ -205,9 +224,15 @@ class TestGoldStorage:
         # Setup mocks
         all_dates = list(sample_silver_data.keys())
         mock_silver_storage.list_available_dates = Mock(return_value=all_dates)
-        mock_silver_storage.read_daily_prices = Mock(
-            side_effect=lambda start, end: sample_silver_data.get(start, pl.DataFrame())
-        )
+
+        def mock_read_daily_prices(start, end):
+            dfs = []
+            for date_key, df in sample_silver_data.items():
+                if start <= date_key <= end:
+                    dfs.append(df)
+            return pl.concat(dfs) if dfs else pl.DataFrame()
+
+        mock_silver_storage.read_daily_prices = Mock(side_effect=mock_read_daily_prices)
 
         # First transformation
         storage.transform_daily_prices(start_date=all_dates[0], end_date=all_dates[0])
@@ -216,11 +241,12 @@ class TestGoldStorage:
         modified_data = sample_silver_data[all_dates[0]].clone()
         modified_data = modified_data.with_columns(pl.lit(999.0).alias("close"))
 
-        mock_silver_storage.read_daily_prices = Mock(
-            side_effect=lambda start, end: modified_data
-            if start == all_dates[0]
-            else pl.DataFrame()
-        )
+        def mock_read_modified(start, end):
+            if start == all_dates[0] and end == all_dates[0]:
+                return modified_data
+            return pl.DataFrame()
+
+        mock_silver_storage.read_daily_prices = Mock(side_effect=mock_read_modified)
 
         # Transform again with force_refresh
         storage.transform_daily_prices(
@@ -240,9 +266,15 @@ class TestGoldStorage:
         mock_silver_storage.list_available_dates = Mock(
             return_value=list(sample_silver_data.keys())
         )
-        mock_silver_storage.read_daily_prices = Mock(
-            side_effect=lambda start, end: sample_silver_data.get(start, pl.DataFrame())
-        )
+
+        def mock_read_daily_prices(start, end):
+            dfs = []
+            for date_key, df in sample_silver_data.items():
+                if start <= date_key <= end:
+                    dfs.append(df)
+            return pl.concat(dfs) if dfs else pl.DataFrame()
+
+        mock_silver_storage.read_daily_prices = Mock(side_effect=mock_read_daily_prices)
         storage.transform_daily_prices()
 
         # Read stock data
@@ -262,9 +294,15 @@ class TestGoldStorage:
         mock_silver_storage.list_available_dates = Mock(
             return_value=list(sample_silver_data.keys())
         )
-        mock_silver_storage.read_daily_prices = Mock(
-            side_effect=lambda start, end: sample_silver_data.get(start, pl.DataFrame())
-        )
+
+        def mock_read_daily_prices(start, end):
+            dfs = []
+            for date_key, df in sample_silver_data.items():
+                if start <= date_key <= end:
+                    dfs.append(df)
+            return pl.concat(dfs) if dfs else pl.DataFrame()
+
+        mock_silver_storage.read_daily_prices = Mock(side_effect=mock_read_daily_prices)
         storage.transform_daily_prices()
 
         # Read with date filter
@@ -282,9 +320,15 @@ class TestGoldStorage:
         mock_silver_storage.list_available_dates = Mock(
             return_value=list(sample_silver_data.keys())
         )
-        mock_silver_storage.read_daily_prices = Mock(
-            side_effect=lambda start, end: sample_silver_data.get(start, pl.DataFrame())
-        )
+
+        def mock_read_daily_prices(start, end):
+            dfs = []
+            for date_key, df in sample_silver_data.items():
+                if start <= date_key <= end:
+                    dfs.append(df)
+            return pl.concat(dfs) if dfs else pl.DataFrame()
+
+        mock_silver_storage.read_daily_prices = Mock(side_effect=mock_read_daily_prices)
         storage.transform_daily_prices()
 
         # Read with column selection
@@ -309,9 +353,15 @@ class TestGoldStorage:
         mock_silver_storage.list_available_dates = Mock(
             return_value=list(sample_silver_data.keys())
         )
-        mock_silver_storage.read_daily_prices = Mock(
-            side_effect=lambda start, end: sample_silver_data.get(start, pl.DataFrame())
-        )
+
+        def mock_read_daily_prices(start, end):
+            dfs = []
+            for date_key, df in sample_silver_data.items():
+                if start <= date_key <= end:
+                    dfs.append(df)
+            return pl.concat(dfs) if dfs else pl.DataFrame()
+
+        mock_silver_storage.read_daily_prices = Mock(side_effect=mock_read_daily_prices)
         storage.transform_daily_prices()
 
         # List stocks
@@ -336,9 +386,15 @@ class TestGoldStorage:
         mock_silver_storage.list_available_dates = Mock(
             return_value=list(sample_silver_data.keys())
         )
-        mock_silver_storage.read_daily_prices = Mock(
-            side_effect=lambda start, end: sample_silver_data.get(start, pl.DataFrame())
-        )
+
+        def mock_read_daily_prices(start, end):
+            dfs = []
+            for date_key, df in sample_silver_data.items():
+                if start <= date_key <= end:
+                    dfs.append(df)
+            return pl.concat(dfs) if dfs else pl.DataFrame()
+
+        mock_silver_storage.read_daily_prices = Mock(side_effect=mock_read_daily_prices)
         storage.transform_daily_prices()
 
         # Get stats
@@ -362,9 +418,15 @@ class TestGoldStorage:
         mock_silver_storage.list_available_dates = Mock(
             return_value=list(sample_silver_data.keys())
         )
-        mock_silver_storage.read_daily_prices = Mock(
-            side_effect=lambda start, end: sample_silver_data.get(start, pl.DataFrame())
-        )
+
+        def mock_read_daily_prices(start, end):
+            dfs = []
+            for date_key, df in sample_silver_data.items():
+                if start <= date_key <= end:
+                    dfs.append(df)
+            return pl.concat(dfs) if dfs else pl.DataFrame()
+
+        mock_silver_storage.read_daily_prices = Mock(side_effect=mock_read_daily_prices)
         storage.transform_daily_prices()
 
         # Get stats for single stock

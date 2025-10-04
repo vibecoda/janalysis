@@ -45,8 +45,8 @@ class GoldStorage:
     ) -> dict[str, Any]:
         """Transform silver layer daily prices to gold layer stock-centric format.
 
-        Strategy: Read silver data one date at a time, then update all affected stocks.
-        This optimizes for silver layer reads (one file per date).
+        Strategy: Read all silver data at once, then write each stock file once.
+        This minimizes I/O operations and is more efficient for bulk transformations.
 
         Args:
             start_date: Start date for transformation (inclusive). If None, process all available dates.
@@ -79,59 +79,49 @@ class GoldStorage:
             f"{dates_to_process[0]} to {dates_to_process[-1]}"
         )
 
-        stats = {"dates_processed": 0, "stocks_updated": set(), "records_written": 0}
+        # Read all silver data at once
+        logger.info(f"Reading silver data for range {start_date} to {end_date}")
+        silver_df = self.silver.read_daily_prices(start_date, end_date)
 
-        # Process one date at a time (optimized for silver reads)
-        for processing_date in dates_to_process:
+        if silver_df.is_empty():
+            logger.warning(f"No silver data in range {start_date} to {end_date}")
+            return {"dates_processed": 0, "stocks_updated": 0, "records_written": 0}
+
+        # Get unique stock codes across all dates
+        stock_codes = silver_df["code"].unique().to_list()
+        logger.info(f"Found {len(stock_codes)} unique stocks across {len(dates_to_process)} dates")
+
+        # Get unique dates that have data
+        dates_with_data = set(silver_df["date"].unique().to_list())
+
+        stats = {"stocks_updated": 0, "records_written": 0}
+
+        # Process each stock once
+        for stock_code in stock_codes:
             try:
-                logger.info(f"Processing date: {processing_date}")
+                # Filter all data for this stock
+                stock_data = silver_df.filter(pl.col("code") == stock_code)
 
-                # Read silver data for this date
-                silver_df = self.silver.read_daily_prices(processing_date, processing_date)
-                if silver_df.is_empty():
-                    logger.warning(f"No silver data for {processing_date}")
-                    continue
+                # Update gold file for this stock (one write per stock)
+                self._update_stock_data(stock_code, stock_data, force_refresh)
 
-                # Get unique stock codes for this date
-                stock_codes = silver_df["code"].unique().to_list()
-                logger.info(f"Found {len(stock_codes)} stocks for {processing_date}")
-
-                # Update each stock's gold file
-                for stock_code in stock_codes:
-                    try:
-                        # Filter data for this stock
-                        stock_data = silver_df.filter(pl.col("code") == stock_code)
-
-                        # Update gold file for this stock
-                        self._update_stock_data(stock_code, stock_data, force_refresh)
-
-                        stats["stocks_updated"].add(stock_code)
-                        stats["records_written"] += len(stock_data)
-
-                    except Exception as e:
-                        logger.error(f"Failed to update stock {stock_code}: {e}")
-                        continue
-
-                stats["dates_processed"] += 1
+                stats["stocks_updated"] += 1
+                stats["records_written"] += len(stock_data)
 
             except Exception as e:
-                logger.error(f"Failed to process date {processing_date}: {e}")
+                logger.error(f"Failed to update stock {stock_code}: {e}")
                 continue
 
-        # Convert set to count for return
-        final_stats = {
-            "dates_processed": stats["dates_processed"],
-            "stocks_updated": len(stats["stocks_updated"]),
-            "records_written": stats["records_written"],
-        }
+        # Calculate dates processed
+        stats["dates_processed"] = len(dates_with_data)
 
         logger.info(
-            f"Transformation complete: {final_stats['dates_processed']} dates, "
-            f"{final_stats['stocks_updated']} stocks updated, "
-            f"{final_stats['records_written']} records written"
+            f"Transformation complete: {stats['dates_processed']} dates, "
+            f"{stats['stocks_updated']} stocks updated, "
+            f"{stats['records_written']} records written"
         )
 
-        return final_stats
+        return stats
 
     def _update_stock_data(self, stock_code: str, new_data: pl.DataFrame, force_refresh: bool):
         """Update gold file for a specific stock with new data.

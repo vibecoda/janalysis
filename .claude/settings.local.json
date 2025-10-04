@@ -15,7 +15,8 @@
       "Bash(python -m pytest tests/test_registry.py -v)",
       "Bash(python -m pytest tests/test_silver_storage.py -v)",
       "Bash(chmod:*)",
-      "Bash(python -m pytest tests/test_gold_storage.py -v)"
+      "Bash(python -m pytest tests/test_gold_storage.py -v)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []
