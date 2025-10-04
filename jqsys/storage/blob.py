@@ -210,20 +210,23 @@ class BlobStorageBackend(ABC):
 
 
 class BlobStorage:
-    """High-level blob storage interface with pluggable backends."""
+    """High-level blob storage interface with pluggable backends.
 
-    def __init__(self, backend: BlobStorageBackend, bucket: str):
+    This is a thin wrapper around a backend that provides a clean, backend-agnostic API.
+    All backend-specific configuration (bucket, prefix, etc.) should be handled when
+    creating the backend instance.
+    """
+
+    def __init__(self, backend: BlobStorageBackend):
         """Initialize blob storage.
 
         Args:
-            backend: Storage backend implementation
-            bucket: Bucket/container name to use
+            backend: Storage backend implementation (fully configured)
         """
         self._backend = backend
-        self._bucket = bucket
 
     @classmethod
-    def from_name(cls, name: str, bucket: str = "default") -> BlobStorage:
+    def from_name(cls, name: str) -> BlobStorage:
         """Create a BlobStorage instance from a named backend configuration.
 
         This is a convenience method that uses the backend registry to resolve
@@ -233,7 +236,6 @@ class BlobStorage:
         Args:
             name: Backend name, optionally with namespace suffix
                   Examples: "dev", "dev.images", "dev.images.thumbnails"
-            bucket: Bucket/container name to use (default: "default")
 
         Returns:
             BlobStorage instance configured with the named backend
@@ -245,12 +247,11 @@ class BlobStorage:
         Examples:
             >>> storage = BlobStorage.from_name("dev")
             >>> storage = BlobStorage.from_name("dev.images.thumbnails")
-            >>> storage = BlobStorage.from_name("minio-local", bucket="my-bucket")
         """
         from .registry import get_blob_backend
 
         backend = get_blob_backend(name)
-        return cls(backend, bucket)
+        return cls(backend)
 
     def put(
         self,

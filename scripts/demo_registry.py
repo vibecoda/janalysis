@@ -119,13 +119,14 @@ def demo_custom_registry():
         # Get backends from custom registry
         print("\n2️⃣  Using backends from custom registry:")
 
+        # Get fully configured backends (with prefix wrapped if needed)
         test_backend = registry.get_backend("test.data")
-        test_storage = BlobStorage(test_backend, bucket="test")
+        test_storage = BlobStorage(test_backend)
         test_storage.put("test.txt", b"test data")
         print("   ✓ Stored data in 'test.data' namespace")
 
         cache_backend = registry.get_backend("cache.api.responses")
-        cache_storage = BlobStorage(cache_backend, bucket="cache")
+        cache_storage = BlobStorage(cache_backend)
         cache_storage.put("response.json", b'{"cached": true}')
         print("   ✓ Stored data in 'cache.api.responses' namespace")
 
@@ -162,14 +163,16 @@ def demo_registry_features():
         print(f"   '{name}' → base='{base}', prefix='{prefix}'")
 
     # Backend caching
-    print("\n2️⃣  Backend caching (same backend instance reused):")
+    print("\n2️⃣  Backend caching (same base backend instance reused):")
 
-    backend1 = registry.get_backend("dev.images")
-    backend2 = registry.get_backend("dev.images")
+    backend1 = registry.get_backend("dev")
+    backend2 = registry.get_backend("dev")
+    backend3 = registry.get_backend("dev.images")  # Should return same as "dev"
 
-    print(f"   ✓ backend1 id: {id(backend1)}")
-    print(f"   ✓ backend2 id: {id(backend2)}")
-    print(f"   ✓ Same instance: {backend1 is backend2}")
+    print(f"   ✓ backend1 ('dev') id: {id(backend1)}")
+    print(f"   ✓ backend2 ('dev') id: {id(backend2)}")
+    print(f"   ✓ backend3 ('dev.images') id: {id(backend3)}")
+    print(f"   ✓ All same instance: {backend1 is backend2 is backend3}")
 
     # List configured backends
     print("\n3️⃣  Configured backends:")

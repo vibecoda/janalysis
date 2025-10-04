@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import shutil
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import BinaryIO
 
@@ -60,7 +60,7 @@ class FilesystemBackend(BlobStorageBackend):
             "key": key,
             "size": size,
             "content_type": content_type or "application/octet-stream",
-            "last_modified": datetime.utcnow().isoformat(),
+            "last_modified": datetime.now(UTC).isoformat(),
             "custom_metadata": custom_metadata or {},
         }
 
@@ -270,7 +270,12 @@ class FilesystemBackend(BlobStorageBackend):
                 if path.is_dir():
                     if delimiter:
                         rel_path = path.relative_to(self._base_path).as_posix()
-                        if prefix and rel_path.startswith(prefix):
+                        if prefix:
+                            # With prefix filter, only add if path starts with prefix
+                            if rel_path.startswith(prefix):
+                                prefixes.add(rel_path + delimiter)
+                        else:
+                            # No prefix filter, add all top-level directories
                             prefixes.add(rel_path + delimiter)
                     continue
 
@@ -365,7 +370,7 @@ class FilesystemBackend(BlobStorageBackend):
                 with open(dest_meta) as f:
                     metadata = json.load(f)
                 metadata["key"] = dest_key
-                metadata["last_modified"] = datetime.utcnow().isoformat()
+                metadata["last_modified"] = datetime.now(UTC).isoformat()
                 with open(dest_meta, "w") as f:
                     json.dump(metadata, f, indent=2)
 

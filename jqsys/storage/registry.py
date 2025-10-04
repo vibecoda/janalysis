@@ -124,12 +124,15 @@ class BlobBackendRegistry:
     def get_backend(self, name: str, use_cache: bool = True) -> BlobStorageBackend:
         """Get a backend instance by name.
 
+        Supports hierarchical namespacing with dot notation. The backend returned
+        will automatically handle prefixing for dotted names.
+
         Args:
-            name: Backend name (e.g., "dev", "dev.images.thumbnails")
+            name: Backend name with optional namespace (e.g., "dev", "dev.images.thumbnails")
             use_cache: Whether to use cached backend instances
 
         Returns:
-            Backend instance, optionally wrapped with prefix
+            Backend instance (wrapped with prefix if needed)
 
         Raises:
             BackendNotFoundError: If base name not found in configuration
@@ -138,9 +141,9 @@ class BlobBackendRegistry:
         Examples:
             >>> registry = BlobBackendRegistry()
             >>> backend = registry.get_backend("dev")
-            >>> backend = registry.get_backend("dev.images")  # Returns prefixed backend
+            >>> prefixed = registry.get_backend("dev.images.thumbnails")
         """
-        # Check cache first
+        # Check cache first (cache the full name including prefix)
         if use_cache and name in self._backend_cache:
             return self._backend_cache[name]
 
@@ -156,18 +159,17 @@ class BlobBackendRegistry:
             )
 
         # Get or create base backend
-        base_backend_key = base_name
-        if use_cache and base_backend_key in self._backend_cache:
-            base_backend = self._backend_cache[base_backend_key]
+        if use_cache and base_name in self._backend_cache:
+            base_backend = self._backend_cache[base_name]
         else:
             base_backend = self.create_backend(self._config[base_name])
             if use_cache:
-                self._backend_cache[base_backend_key] = base_backend
+                self._backend_cache[base_name] = base_backend
 
         # Wrap with prefix if needed
         backend = PrefixedBlobBackend(base_backend, prefix) if prefix else base_backend
 
-        # Cache the final backend
+        # Cache the final backend (including prefix wrapper)
         if use_cache:
             self._backend_cache[name] = backend
 

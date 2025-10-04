@@ -1,4 +1,7 @@
-"""Prefixed backend wrapper for adding namespace prefixes to blob operations."""
+"""Internal prefix wrapper for backends.
+
+This module is for internal use by the registry only and should not be imported directly.
+"""
 
 from __future__ import annotations
 
@@ -9,32 +12,30 @@ from ..blob import BlobListResult, BlobMetadata, BlobStorageBackend
 
 
 class PrefixedBlobBackend(BlobStorageBackend):
-    """Wrapper that adds a prefix to all blob keys.
+    """Wrapper that adds a prefix to all keys for any backend.
 
-    This allows creating namespaces within a backend:
-        backend = FilesystemBackend("/data")
-        prefixed = PrefixedBlobBackend(backend, "images/thumbnails")
-        prefixed.put("photo.jpg", data)  # Actually stored at "images/thumbnails/photo.jpg"
+    This is an internal utility used by the registry to support hierarchical namespacing.
+    Users should not instantiate this directly - use BlobStorage.from_name() instead.
     """
 
     def __init__(self, backend: BlobStorageBackend, prefix: str = ""):
-        """Initialize prefixed backend.
+        """Initialize prefixed backend wrapper.
 
         Args:
             backend: The underlying backend to wrap
             prefix: Prefix to add to all keys (e.g., "images/thumbnails")
         """
         self._backend = backend
-        # Normalize prefix - ensure it ends with / if not empty
+        # Normalize prefix: ensure it ends with "/" if not empty
         self._prefix = prefix.rstrip("/") + "/" if prefix else ""
 
     def _add_prefix(self, key: str) -> str:
         """Add prefix to a key."""
-        return self._prefix + key
+        return self._prefix + key if self._prefix else key
 
     def _remove_prefix(self, key: str) -> str:
         """Remove prefix from a key."""
-        if key.startswith(self._prefix):
+        if self._prefix and key.startswith(self._prefix):
             return key[len(self._prefix) :]
         return key
 
@@ -62,27 +63,21 @@ class PrefixedBlobBackend(BlobStorageBackend):
 
     def delete_many(self, keys: list[str]) -> dict[str, bool]:
         """Delete multiple blobs using prefixed keys."""
-        prefixed_keys = [self._add_prefix(k) for k in keys]
+        prefixed_keys = [self._add_prefix(key) for key in keys]
         results = self._backend.delete_many(prefixed_keys)
-        # Map results back to unprefixed keys
+        # Convert back to unprefixed keys in results
         return {self._remove_prefix(k): v for k, v in results.items()}
 
     def exists(self, key: str) -> bool:
-        """Check if a blob exists using prefixed key."""
+        """Check if blob exists using prefixed key."""
         return self._backend.exists(self._add_prefix(key))
 
     def get_metadata(self, key: str) -> BlobMetadata:
-        """Get metadata for a blob using prefixed key."""
+        """Get metadata using prefixed key, return with unprefixed key."""
         metadata = self._backend.get_metadata(self._add_prefix(key))
         # Return metadata with unprefixed key
-        return BlobMetadata(
-            key=key,  # Use original unprefixed key
-            size=metadata.size,
-            content_type=metadata.content_type,
-            last_modified=metadata.last_modified,
-            etag=metadata.etag,
-            custom_metadata=metadata.custom_metadata,
-        )
+        metadata.key = self._remove_prefix(metadata.key)
+        return metadata
 
     def list_blobs(
         self,
@@ -91,52 +86,37 @@ class PrefixedBlobBackend(BlobStorageBackend):
         max_results: int = 1000,
         marker: str | None = None,
     ) -> BlobListResult:
-        """List blobs with prefixed keys."""
-        # Add our prefix to the user's prefix
-        full_prefix = self._prefix + (prefix or "")
+        """List blobs, adding our prefix to the search prefix."""
+        # Combine our prefix with user's prefix
+        full_prefix = self._add_prefix(prefix) if prefix else self._prefix or None
 
-        # Add prefix to marker if provided
-        full_marker = self._add_prefix(marker) if marker else None
+        result = self._backend.list_blobs(full_prefix, delimiter, max_results, marker)
 
-        result = self._backend.list_blobs(full_prefix, delimiter, max_results, full_marker)
-
-        # Remove our prefix from all returned keys
+        # Remove our prefix from all returned keys and prefixes
         unprefixed_blobs = []
         for blob in result.blobs:
-            unprefixed_blobs.append(
-                BlobMetadata(
-                    key=self._remove_prefix(blob.key),
-                    size=blob.size,
-                    content_type=blob.content_type,
-                    last_modified=blob.last_modified,
-                    etag=blob.etag,
-                    custom_metadata=blob.custom_metadata,
-                )
-            )
+            blob.key = self._remove_prefix(blob.key)
+            unprefixed_blobs.append(blob)
 
-        # Remove prefix from prefixes list
         unprefixed_prefixes = [self._remove_prefix(p) for p in result.prefixes]
-
-        # Remove prefix from next_marker
-        next_marker = self._remove_prefix(result.next_marker) if result.next_marker else None
 
         return BlobListResult(
             blobs=unprefixed_blobs,
             prefixes=unprefixed_prefixes,
             is_truncated=result.is_truncated,
-            next_marker=next_marker,
+            next_marker=result.next_marker,
         )
 
     def generate_presigned_url(
         self, key: str, expiration: timedelta = timedelta(hours=1), method: str = "GET"
     ) -> str:
-        """Generate a presigned URL for a blob using prefixed key."""
+        """Generate presigned URL using prefixed key."""
         return self._backend.generate_presigned_url(self._add_prefix(key), expiration, method)
 
     def copy(self, source_key: str, dest_key: str) -> None:
-        """Copy a blob using prefixed keys."""
+        """Copy blob using prefixed keys."""
         self._backend.copy(self._add_prefix(source_key), self._add_prefix(dest_key))
 
     def get_size(self, key: str) -> int:
-        """Get the size of a blob using prefixed key."""
+        """Get blob size using prefixed key."""
         return self._backend.get_size(self._add_prefix(key))
