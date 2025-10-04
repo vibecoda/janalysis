@@ -7,7 +7,7 @@ optimized for financial analysis and feature engineering.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from io import BytesIO
 from typing import Any
 
@@ -37,7 +37,7 @@ class SilverStorage:
         self.storage = storage
         self.bronze = bronze_storage or BronzeStorage()
 
-    def normalize_daily_quotes(self, date: datetime, force_refresh: bool = False) -> str | None:
+    def normalize_daily_quotes(self, date: date, force_refresh: bool = False) -> str | None:
         """Normalize daily quotes data from bronze to silver layer.
 
         Args:
@@ -50,14 +50,16 @@ class SilverStorage:
         # Check if already processed
         blob_key = self._get_silver_key("daily_prices", date)
         if self.storage.exists(blob_key) and not force_refresh:
-            logger.info(f"Daily quotes already normalized for {date.strftime('%Y-%m-%d')}")
+            logger.info(f"Daily quotes already normalized for {date.isoformat()}")
             return blob_key
 
         try:
-            # Read raw data from bronze
-            raw_df = self.bronze.read_raw_data("daily_quotes", date=date)
+            # Read raw data from bronze (bronze layer uses datetime)
+            raw_df = self.bronze.read_raw_data(
+                "daily_quotes", date=datetime.combine(date, datetime.min.time())
+            )
             if raw_df.is_empty():
-                logger.warning(f"No raw daily quotes data for {date.strftime('%Y-%m-%d')}")
+                logger.warning(f"No raw daily quotes data for {date.isoformat()}")
                 return None
 
             # Normalize the data
@@ -73,20 +75,22 @@ class SilverStorage:
             self.storage.put(blob_key, buffer.read(), content_type="application/parquet")
 
             logger.info(
-                f"Normalized {len(normalized_df)} daily quotes records for {date.strftime('%Y-%m-%d')}"
+                f"Normalized {len(normalized_df)} daily quotes records for {date.isoformat()}"
             )
             return blob_key
 
         except Exception as e:
-            logger.error(f"Failed to normalize daily quotes for {date.strftime('%Y-%m-%d')}: {e}")
+            logger.error(f"Failed to normalize daily quotes for {date.isoformat()}: {e}")
             raise
 
-    def _normalize_daily_quotes_schema(self, raw_df: pl.DataFrame, date: datetime) -> pl.DataFrame:
+    def _normalize_daily_quotes_schema(
+        self, raw_df: pl.DataFrame, processing_date: date
+    ) -> pl.DataFrame:
         """Transform raw daily quotes to normalized schema.
 
         Args:
             raw_df: Raw DataFrame from bronze layer
-            date: Processing date
+            processing_date: Processing date (not used in schema transformation)
 
         Returns:
             Normalized DataFrame
@@ -133,12 +137,12 @@ class SilverStorage:
 
         return normalized.sort(["code", "date"])
 
-    def _validate_daily_quotes(self, df: pl.DataFrame, date: datetime) -> None:
+    def _validate_daily_quotes(self, df: pl.DataFrame, expected_date: date) -> None:
         """Validate daily quotes data quality.
 
         Args:
             df: Normalized DataFrame to validate
-            date: Expected date
+            expected_date: Expected date (not used in validation)
 
         Raises:
             ValueError: If data quality issues are found
@@ -186,7 +190,7 @@ class SilverStorage:
 
         logger.info(f"Data quality validation passed for {len(df)} records")
 
-    def _get_silver_key(self, table: str, date: datetime) -> str:
+    def _get_silver_key(self, table: str, date: date) -> str:
         """Get blob key for silver layer table file.
 
         Args:
@@ -196,11 +200,11 @@ class SilverStorage:
         Returns:
             Blob key for silver layer file
         """
-        date_str = date.strftime("%Y-%m-%d")
+        date_str = date.isoformat()
         return f"{table}/{date_str}/data.parquet"
 
     def read_daily_prices(
-        self, start_date: datetime, end_date: datetime, codes: list[str] | None = None
+        self, start_date: date, end_date: date, codes: list[str] | None = None
     ) -> pl.DataFrame:
         """Read normalized daily prices from silver layer.
 
@@ -236,9 +240,7 @@ class SilverStorage:
             df = dataframes[0] if len(dataframes) == 1 else pl.concat(dataframes)
 
             # Apply filters
-            df = df.filter(
-                (pl.col("date") >= start_date.date()) & (pl.col("date") <= end_date.date())
-            )
+            df = df.filter((pl.col("date") >= start_date) & (pl.col("date") <= end_date))
 
             if codes:
                 df = df.filter(pl.col("code").is_in(codes))
@@ -249,7 +251,7 @@ class SilverStorage:
             logger.error(f"Failed to read daily prices: {e}")
             raise
 
-    def list_available_dates(self, table: str) -> list[datetime]:
+    def list_available_dates(self, table: str) -> list[date]:
         """List all available dates for a table.
 
         Args:
@@ -272,7 +274,7 @@ class SilverStorage:
                     continue
 
                 date_str = parts[1]
-                date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                date_obj = date.fromisoformat(date_str)
                 dates.append(date_obj)
 
             except (ValueError, IndexError):

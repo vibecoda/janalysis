@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from io import BytesIO
 from unittest.mock import Mock, patch
 
@@ -78,7 +78,7 @@ class TestSilverStorage:
         self, mock_blob_storage, mock_bronze_storage, sample_raw_data
     ):
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
-        test_date = datetime(2024, 1, 15)
+        test_date = date(2024, 1, 15)
 
         # Mock bronze storage to return sample data
         mock_raw_df = pl.DataFrame(sample_raw_data)
@@ -124,7 +124,7 @@ class TestSilverStorage:
 
     def test_normalize_daily_quotes_empty_data(self, mock_blob_storage, mock_bronze_storage):
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
-        test_date = datetime(2024, 1, 15)
+        test_date = date(2024, 1, 15)
 
         # Mock bronze storage to return empty data
         mock_bronze_storage.read_raw_data = Mock(return_value=pl.DataFrame())
@@ -139,7 +139,7 @@ class TestSilverStorage:
         self, mock_blob_storage, mock_bronze_storage, sample_raw_data
     ):
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
-        test_date = datetime(2024, 1, 15)
+        test_date = date(2024, 1, 15)
 
         # First normalization
         mock_raw_df = pl.DataFrame(sample_raw_data)
@@ -158,7 +158,7 @@ class TestSilverStorage:
         self, mock_blob_storage, mock_bronze_storage, sample_raw_data
     ):
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
-        test_date = datetime(2024, 1, 15)
+        test_date = date(2024, 1, 15)
 
         # First normalization
         mock_raw_df = pl.DataFrame(sample_raw_data)
@@ -177,7 +177,7 @@ class TestSilverStorage:
         self, mock_blob_storage, mock_bronze_storage
     ):
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
-        test_date = datetime(2024, 1, 15)
+        test_date = date(2024, 1, 15)
 
         # Test data with missing adjustment close
         raw_data = [
@@ -223,7 +223,7 @@ class TestSilverStorage:
         )
 
         with pytest.raises(ValueError, match="Missing required columns"):
-            storage._validate_daily_quotes(invalid_df, datetime(2024, 1, 15))
+            storage._validate_daily_quotes(invalid_df, date(2024, 1, 15))
 
     def test_validate_daily_quotes_null_values(self, mock_blob_storage, mock_bronze_storage):
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
@@ -242,7 +242,7 @@ class TestSilverStorage:
         )
 
         with pytest.raises(ValueError, match="Found .* null"):
-            storage._validate_daily_quotes(invalid_df, datetime(2024, 1, 15))
+            storage._validate_daily_quotes(invalid_df, date(2024, 1, 15))
 
     def test_validate_daily_quotes_negative_prices(self, mock_blob_storage, mock_bronze_storage):
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
@@ -261,7 +261,7 @@ class TestSilverStorage:
         )
 
         with pytest.raises(ValueError, match="Found non-positive close prices"):
-            storage._validate_daily_quotes(invalid_df, datetime(2024, 1, 15))
+            storage._validate_daily_quotes(invalid_df, date(2024, 1, 15))
 
     def test_validate_daily_quotes_invalid_ohlc_relationships(
         self, mock_blob_storage, mock_bronze_storage
@@ -282,7 +282,7 @@ class TestSilverStorage:
         )
 
         with pytest.raises(ValueError, match="invalid OHLC relationships"):
-            storage._validate_daily_quotes(invalid_df, datetime(2024, 1, 15))
+            storage._validate_daily_quotes(invalid_df, date(2024, 1, 15))
 
     def test_validate_daily_quotes_very_high_prices_warning(
         self, mock_blob_storage, mock_bronze_storage
@@ -304,13 +304,13 @@ class TestSilverStorage:
 
         with patch("jqsys.data.layers.silver.logger") as mock_logger:
             # Should not raise exception, just warn
-            storage._validate_daily_quotes(high_price_df, datetime(2024, 1, 15))
+            storage._validate_daily_quotes(high_price_df, date(2024, 1, 15))
             mock_logger.warning.assert_called()
 
     def test_get_silver_key(self, mock_blob_storage, mock_bronze_storage):
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
 
-        test_date = datetime(2024, 1, 15)
+        test_date = date(2024, 1, 15)
         key = storage._get_silver_key("daily_prices", test_date)
 
         expected_key = "daily_prices/2024-01-15/data.parquet"
@@ -320,7 +320,7 @@ class TestSilverStorage:
         self, mock_blob_storage, mock_bronze_storage, sample_raw_data
     ):
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
-        test_date = datetime(2024, 1, 15)
+        test_date = date(2024, 1, 15)
 
         # First normalize some data
         mock_raw_df = pl.DataFrame(sample_raw_data)
@@ -341,7 +341,7 @@ class TestSilverStorage:
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
 
         # Normalize data for multiple dates
-        dates = [datetime(2024, 1, 15), datetime(2024, 1, 16)]
+        dates = [date(2024, 1, 15), date(2024, 1, 16)]
         mock_raw_df = pl.DataFrame(sample_raw_data)
         mock_bronze_storage.read_raw_data = Mock(return_value=mock_raw_df)
 
@@ -349,7 +349,7 @@ class TestSilverStorage:
             storage.normalize_daily_quotes(test_date)
 
         # Read date range
-        df = storage.read_daily_prices(datetime(2024, 1, 15), datetime(2024, 1, 16))
+        df = storage.read_daily_prices(date(2024, 1, 15), date(2024, 1, 16))
 
         # Should have data from both dates
         assert len(df) == 4  # 2 codes × 2 dates
@@ -358,7 +358,7 @@ class TestSilverStorage:
         self, mock_blob_storage, mock_bronze_storage, sample_raw_data
     ):
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
-        test_date = datetime(2024, 1, 15)
+        test_date = date(2024, 1, 15)
 
         # Normalize data
         mock_raw_df = pl.DataFrame(sample_raw_data)
@@ -375,7 +375,7 @@ class TestSilverStorage:
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
 
         # Try to read data that doesn't exist
-        df = storage.read_daily_prices(datetime(2024, 1, 15), datetime(2024, 1, 15))
+        df = storage.read_daily_prices(date(2024, 1, 15), date(2024, 1, 15))
 
         assert df.is_empty()
 
@@ -383,19 +383,19 @@ class TestSilverStorage:
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
 
         # Create a corrupted blob
-        blob_key = storage._get_silver_key("daily_prices", datetime(2024, 1, 15))
+        blob_key = storage._get_silver_key("daily_prices", date(2024, 1, 15))
         storage.storage.put(blob_key, b"corrupted parquet data")
 
         with pytest.raises(Exception):
-            storage.read_daily_prices(datetime(2024, 1, 15), datetime(2024, 1, 15))
+            storage.read_daily_prices(date(2024, 1, 15), date(2024, 1, 15))
 
     def test_date_increment_logic(self, mock_blob_storage, mock_bronze_storage):
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
 
         # Test the date increment logic in read_daily_prices
         # This tests the date loop that increments current_date
-        start_date = datetime(2024, 1, 29)  # End of month
-        end_date = datetime(2024, 1, 31)  # Stay within same month for simplicity
+        start_date = date(2024, 1, 29)  # End of month
+        end_date = date(2024, 1, 31)  # Stay within same month for simplicity
 
         # Should not crash on date arithmetic
         df = storage.read_daily_prices(start_date, end_date)
@@ -405,7 +405,7 @@ class TestSilverStorage:
         self, mock_blob_storage, mock_bronze_storage
     ):
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
-        test_date = datetime(2024, 1, 15)
+        test_date = date(2024, 1, 15)
 
         # Mock bronze storage to raise an exception
         mock_bronze_storage.read_raw_data = Mock(side_effect=Exception("Bronze read error"))
@@ -417,7 +417,7 @@ class TestSilverStorage:
 
     def test_normalize_daily_quotes_schema_with_nulls(self, mock_blob_storage, mock_bronze_storage):
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
-        test_date = datetime(2024, 1, 15)
+        test_date = date(2024, 1, 15)
 
         # Test data with null values in optional fields
         raw_data = [
@@ -452,7 +452,7 @@ class TestSilverStorage:
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
 
         # Normalize data for multiple dates
-        dates = [datetime(2024, 1, 15), datetime(2024, 1, 16), datetime(2024, 1, 17)]
+        dates = [date(2024, 1, 15), date(2024, 1, 16), date(2024, 1, 17)]
         mock_raw_df = pl.DataFrame(sample_raw_data)
         mock_bronze_storage.read_raw_data = Mock(return_value=mock_raw_df)
 
@@ -469,7 +469,7 @@ class TestSilverStorage:
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
 
         # Normalize data for multiple dates
-        dates = [datetime(2024, 1, 15), datetime(2024, 1, 16)]
+        dates = [date(2024, 1, 15), date(2024, 1, 16)]
         mock_raw_df = pl.DataFrame(sample_raw_data)
         mock_bronze_storage.read_raw_data = Mock(return_value=mock_raw_df)
 
@@ -492,7 +492,7 @@ class TestSilverStorage:
         storage = SilverStorage(mock_blob_storage, mock_bronze_storage)
 
         # Normalize data
-        test_date = datetime(2024, 1, 15)
+        test_date = date(2024, 1, 15)
         mock_raw_df = pl.DataFrame(sample_raw_data)
         mock_bronze_storage.read_raw_data = Mock(return_value=mock_raw_df)
         storage.normalize_daily_quotes(test_date)
