@@ -33,6 +33,7 @@ class MinIOBackend(BlobStorageBackend):
         bucket: str,
         secure: bool = True,
         region: str | None = None,
+        prefix: str | None = None,
     ):
         """Initialize MinIO backend.
 
@@ -43,8 +44,10 @@ class MinIOBackend(BlobStorageBackend):
             bucket: Bucket name to use
             secure: Use HTTPS if True
             region: Optional region name
+            prefix: Optional prefix to prepend to all keys
         """
         self._bucket = bucket
+        self._prefix = prefix.rstrip("/") + "/" if prefix else ""
 
         try:
             self._client = Minio(
@@ -65,6 +68,16 @@ class MinIOBackend(BlobStorageBackend):
         except S3Error as e:
             raise BlobStorageConnectionError(f"Failed to connect to MinIO: {e}")
 
+    def _full_key(self, key: str) -> str:
+        """Prepend prefix to key."""
+        return f"{self._prefix}{key}"
+
+    def _strip_prefix(self, full_key: str) -> str:
+        """Remove prefix from key."""
+        if self._prefix and full_key.startswith(self._prefix):
+            return full_key[len(self._prefix) :]
+        return full_key
+
     def put(
         self,
         key: str,
@@ -74,6 +87,8 @@ class MinIOBackend(BlobStorageBackend):
     ) -> str:
         """Store a blob in MinIO."""
         try:
+            full_key = self._full_key(key)
+
             # Convert bytes to BytesIO if needed
             if isinstance(data, bytes):
                 stream = BytesIO(data)
@@ -88,7 +103,7 @@ class MinIOBackend(BlobStorageBackend):
 
             result = self._client.put_object(
                 bucket_name=self._bucket,
-                object_name=key,
+                object_name=full_key,
                 data=stream,
                 length=length,
                 content_type=content_type or "application/octet-stream",
@@ -104,7 +119,8 @@ class MinIOBackend(BlobStorageBackend):
     def get(self, key: str) -> bytes:
         """Retrieve a blob from MinIO."""
         try:
-            response = self._client.get_object(self._bucket, key)
+            full_key = self._full_key(key)
+            response = self._client.get_object(self._bucket, full_key)
             data = response.read()
             response.close()
             response.release_conn()
@@ -118,7 +134,8 @@ class MinIOBackend(BlobStorageBackend):
     def get_stream(self, key: str) -> BinaryIO:
         """Retrieve a blob as a stream from MinIO."""
         try:
-            response = self._client.get_object(self._bucket, key)
+            full_key = self._full_key(key)
+            response = self._client.get_object(self._bucket, full_key)
             return response
 
         except S3Error as e:
@@ -129,7 +146,8 @@ class MinIOBackend(BlobStorageBackend):
     def delete(self, key: str) -> None:
         """Delete a blob from MinIO."""
         try:
-            self._client.remove_object(self._bucket, key)
+            full_key = self._full_key(key)
+            self._client.remove_object(self._bucket, full_key)
             logger.info(f"Deleted blob: {key}")
 
         except S3Error as e:
@@ -143,11 +161,12 @@ class MinIOBackend(BlobStorageBackend):
 
         try:
             # MinIO's remove_objects returns an iterator of errors
-            errors = self._client.remove_objects(self._bucket, list(keys))
+            full_keys = [self._full_key(key) for key in keys]
+            errors = self._client.remove_objects(self._bucket, full_keys)
 
             # Convert to dict - all keys succeed unless in error list
             error_keys = {err.object_name for err in errors}
-            results = {key: key not in error_keys for key in keys}
+            results = {key: self._full_key(key) not in error_keys for key in keys}
 
             logger.info(f"Deleted {sum(results.values())} of {len(keys)} blobs")
             return results
@@ -158,7 +177,8 @@ class MinIOBackend(BlobStorageBackend):
     def exists(self, key: str) -> bool:
         """Check if a blob exists in MinIO."""
         try:
-            self._client.stat_object(self._bucket, key)
+            full_key = self._full_key(key)
+            self._client.stat_object(self._bucket, full_key)
             return True
         except S3Error as e:
             if e.code == "NoSuchKey":
@@ -168,7 +188,8 @@ class MinIOBackend(BlobStorageBackend):
     def get_metadata(self, key: str) -> BlobMetadata:
         """Get metadata for a blob in MinIO."""
         try:
-            stat = self._client.stat_object(self._bucket, key)
+            full_key = self._full_key(key)
+            stat = self._client.stat_object(self._bucket, full_key)
 
             return BlobMetadata(
                 key=key,
@@ -193,11 +214,15 @@ class MinIOBackend(BlobStorageBackend):
     ) -> BlobListResult:
         """List blobs in MinIO."""
         try:
+            # Combine instance prefix with method prefix
+            full_prefix = self._full_key(prefix) if prefix else self._prefix
+            full_marker = self._full_key(marker) if marker else None
+
             objects = self._client.list_objects(
                 bucket_name=self._bucket,
-                prefix=prefix or "",
+                prefix=full_prefix,
                 recursive=(delimiter is None),
-                start_after=marker,
+                start_after=full_marker,
             )
 
             blobs = []
@@ -217,11 +242,11 @@ class MinIOBackend(BlobStorageBackend):
 
                 # Check if it's a prefix (directory)
                 if hasattr(obj, "is_dir") and obj.is_dir:
-                    prefixes.add(obj.object_name)
+                    prefixes.add(self._strip_prefix(obj.object_name))
                 else:
                     blobs.append(
                         BlobMetadata(
-                            key=obj.object_name,
+                            key=self._strip_prefix(obj.object_name),
                             size=obj.size,
                             content_type=None,  # Not available in list
                             last_modified=obj.last_modified,
@@ -242,8 +267,9 @@ class MinIOBackend(BlobStorageBackend):
     ) -> str:
         """Generate a presigned URL for MinIO."""
         try:
+            full_key = self._full_key(key)
             url = self._client.presigned_get_object(
-                bucket_name=self._bucket, object_name=key, expires=expiration
+                bucket_name=self._bucket, object_name=full_key, expires=expiration
             )
             return url
 
@@ -255,10 +281,13 @@ class MinIOBackend(BlobStorageBackend):
         try:
             from minio.commonconfig import CopySource
 
+            full_source_key = self._full_key(source_key)
+            full_dest_key = self._full_key(dest_key)
+
             self._client.copy_object(
                 bucket_name=self._bucket,
-                object_name=dest_key,
-                source=CopySource(self._bucket, source_key),
+                object_name=full_dest_key,
+                source=CopySource(self._bucket, full_source_key),
             )
 
             logger.info(f"Copied blob: {source_key} -> {dest_key}")
@@ -271,7 +300,8 @@ class MinIOBackend(BlobStorageBackend):
     def get_size(self, key: str) -> int:
         """Get the size of a blob in MinIO."""
         try:
-            stat = self._client.stat_object(self._bucket, key)
+            full_key = self._full_key(key)
+            stat = self._client.stat_object(self._bucket, full_key)
             return stat.size
 
         except S3Error as e:

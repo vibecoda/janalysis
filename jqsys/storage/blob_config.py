@@ -29,13 +29,14 @@ CONFIGURATION = {
         "base_path": str(DEFAULT_BASE_PATH / "dev"),
     },
     # Local MinIO for testing
-    "minio-local": {
+    "minio": {
         "type": "minio",
         "endpoint": "localhost:9000",
         "access_key": os.getenv("MINIO_ACCESS_KEY", "minioadmin"),
         "secret_key": os.getenv("MINIO_SECRET_KEY", "minioadmin"),
         "bucket": "jqsys-dev",
         "secure": False,
+        "prefix": "dev",  # Optional: prefix for all keys
     },
     # Example production MinIO/S3 configuration
     "prod": {
