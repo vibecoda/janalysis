@@ -380,6 +380,33 @@ class TestBlobBackendRegistry:
         # Should be different instances
         assert backend1 is not backend2
 
+    def test_get_backend_with_inheritance(self, tmp_path):
+        """Test that registry works with pre-resolved inherited configurations."""
+        from jqsys.core.utils.config import resolve_config_inheritance
+
+        # Define config with inheritance
+        raw_config = {
+            "parent": {
+                "type": "filesystem",
+                "base_path": str(tmp_path),
+            },
+            "child": {
+                "__inherits__": "parent",
+            },
+        }
+
+        # Resolve inheritance (this is what load_and_resolve_config does)
+        resolved_config = resolve_config_inheritance(raw_config)
+
+        # Registry receives fully resolved config
+        registry = BlobBackendRegistry(resolved_config)
+        backend = registry.get_backend("child")
+
+        # Should successfully create backend with inherited config
+        assert backend is not None
+        # Since there's no prefix, backend is directly FilesystemBackend (not wrapped)
+        assert isinstance(backend, FilesystemBackend)
+
 
 class TestGlobalRegistryFunctions:
     """Test global registry utility functions."""

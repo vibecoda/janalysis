@@ -10,6 +10,7 @@ from jqsys.core.storage.backends.filesystem_backend import FilesystemBackend
 from jqsys.core.storage.backends.minio_backend import MinIOBackend
 from jqsys.core.storage.backends.prefixed_backend import PrefixedBlobBackend
 from jqsys.core.storage.blob import BlobStorageBackend
+from jqsys.core.utils.config import load_and_resolve_config
 
 logger = logging.getLogger(__name__)
 
@@ -42,17 +43,16 @@ class BlobBackendRegistry:
         """Initialize the registry.
 
         Args:
-            configuration: Backend configuration dict. If None, loads from blob_config.py
+            configuration: Backend configuration dict. If None, loads and resolves
+                          configuration from configs/blob_backends.py with inheritance
         """
         if configuration is None:
-            # Import default configuration
-            try:
-                from jqsys.core.storage.blob_config import CONFIGURATION
-
-                configuration = CONFIGURATION
-            except ImportError:
-                logger.warning("Could not import blob_config.CONFIGURATION, using empty config")
-                configuration = {}
+            # Load and resolve configuration (including inheritance)
+            configuration = load_and_resolve_config(
+                "configs.blob_backends",
+                config_name="CONFIGURATION",
+                default={},
+            )
 
         self._config = configuration
         self._backend_cache: dict[str, BlobStorageBackend] = {}
@@ -162,6 +162,7 @@ class BlobBackendRegistry:
         if use_cache and base_name in self._backend_cache:
             base_backend = self._backend_cache[base_name]
         else:
+            # Configuration is already resolved (inheritance handled by config loader)
             base_backend = self.create_backend(self._config[base_name])
             if use_cache:
                 self._backend_cache[base_name] = base_backend
