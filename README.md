@@ -92,15 +92,13 @@ uv venv -p 3.13
 uv pip install -e ".[dev]"
 ```
 
-### 2. Run Tests
+### 2. Run Data Pipeline
 
 ```bash
 # Run all tests
-python run_tests.py
-
-# Or use pytest directly
-pytest tests/ -v
+python scripts/batch/run_data_pipeline.py
 ```
+### 3. Run the demos in notebooks/stock_demo.ipynb
 
 ## Git Hooks
 
