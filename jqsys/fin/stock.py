@@ -431,28 +431,42 @@ class Stock:
         if "adjustment_factor" not in df.columns:
             return df
 
-        factor = pl.col("adjustment_factor").cast(pl.Float64).fill_null(1.0)
-        safe_divisor = pl.when(factor == 0).then(1.0).otherwise(factor)
+        factor_series = (
+            df.get_column("adjustment_factor").cast(pl.Float64).fill_null(1.0)
+            if "adjustment_factor" in df.columns
+            else None
+        )
+        if factor_series is None:
+            return df
+
+        target_factor = factor_series[-1] if len(factor_series) else 1.0
+        if target_factor == 0 or target_factor is None:
+            target_factor = 1.0
+
+        factor_expr = pl.col("adjustment_factor").cast(pl.Float64).fill_null(1.0)
+        safe_factor = pl.when(factor_expr == 0).then(1.0).otherwise(factor_expr)
+        price_multiplier = pl.lit(target_factor) / safe_factor
+        volume_multiplier = safe_factor / pl.lit(target_factor)
 
         exprs: list[pl.Expr] = []
         for col in ("open", "high", "low", "close"):
             if col in df.columns:
                 exprs.append(
-                    (pl.col(col).cast(pl.Float64) * factor).alias(
+                    (pl.col(col).cast(pl.Float64) * price_multiplier).alias(
                         f"adj_{col}" if mode == "add" else col
                     )
                 )
 
         if adjust_volume and "volume" in df.columns:
             exprs.append(
-                (pl.col("volume").cast(pl.Float64) / safe_divisor).alias(
+                (pl.col("volume").cast(pl.Float64) * volume_multiplier).alias(
                     "adj_volume" if mode == "add" else "volume"
                 )
             )
 
         if adjust_turnover and "turnover_value" in df.columns:
             exprs.append(
-                (pl.col("turnover_value").cast(pl.Float64) * factor).alias(
+                (pl.col("turnover_value").cast(pl.Float64) * price_multiplier).alias(
                     "adj_turnover_value" if mode == "add" else "turnover_value"
                 )
             )

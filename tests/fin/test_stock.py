@@ -65,27 +65,25 @@ def gold_storage(tmp_path) -> GoldStorage:
             {
                 "code": "13010",
                 "date": date(2024, 1, 15),
-                "open": 101.0,
-                "high": 105.0,
-                "low": 99.0,
-                "close": 103.0,
-                "volume": 150000,
-                "turnover_value": 12500000.0,
-                "adjustment_factor": 0.5,
-                "adj_close": 51.5,
+                "open": 300.0,
+                "high": 330.0,
+                "low": 290.0,
+                "close": 315.0,
+                "volume": 900.0,
+                "turnover_value": 283500.0,
+                "adjustment_factor": 1.0,
                 "processed_at": "2024-01-15T10:00:00",
             },
             {
                 "code": "13010",
                 "date": date(2024, 1, 16),
-                "open": 102.0,
-                "high": 106.0,
-                "low": 101.0,
-                "close": 104.5,
-                "volume": 160000,
-                "turnover_value": 16640000.0,
-                "adjustment_factor": 1.0,
-                "adj_close": 104.5,
+                "open": 110.0,
+                "high": 120.0,
+                "low": 105.0,
+                "close": 115.0,
+                "volume": 2700.0,
+                "turnover_value": 310500.0,
+                "adjustment_factor": 1 / 3,
                 "processed_at": "2024-01-16T10:00:00",
             },
         ]
@@ -116,11 +114,11 @@ def test_stock_listed_info_and_prices(bronze_storage, gold_storage):
 
     history = stock.get_price_history()
     assert history.height == 2
-    assert history.select("close").to_series().to_list() == [103.0, 104.5]
+    assert history.select("close").to_series().to_list() == [315.0, 115.0]
 
     latest = stock.get_latest_price()
     assert latest is not None
-    assert latest["close"] == 104.5
+    assert latest["close"] == 115.0
 
 
 def test_stock_search_exact(bronze_storage, gold_storage):
@@ -166,29 +164,29 @@ def test_adjusted_price_history(bronze_storage, gold_storage):
     )
 
     adjusted_opens = history.select("adj_open").to_series().to_list()
-    assert adjusted_opens == [50.5, 102.0]
+    assert adjusted_opens == pytest.approx([100.0, 110.0])
 
     adjusted_volume = history.select("adj_volume").to_series().to_list()
-    assert adjusted_volume == [300000.0, 160000.0]
+    assert adjusted_volume == pytest.approx([2700.0, 2700.0])
 
 
 def test_convenience_series_methods(bronze_storage, gold_storage):
     stock = Stock("1301", bronze_storage=bronze_storage, gold_storage=gold_storage)
 
     closes = stock.close_series().to_list()
-    assert closes == [51.5, 104.5]
+    assert closes == pytest.approx([105.0, 115.0])
 
     raw_closes = stock.close_series(adjusted=False).to_list()
-    assert raw_closes == [103.0, 104.5]
+    assert raw_closes == [315.0, 115.0]
 
     volumes = stock.volume_series().to_list()
-    assert volumes == [300000.0, 160000.0]
+    assert volumes == pytest.approx([2700.0, 2700.0])
 
     turnover = stock.turnover_series().to_list()
-    assert turnover == [12500000.0, 16640000.0]
+    assert turnover == [283500.0, 310500.0]
 
     factors = stock.adjustment_factor_series().to_list()
-    assert factors == [0.5, 1.0]
+    assert factors == pytest.approx([1.0, 1 / 3])
 
 
 def test_adjustment_events(bronze_storage, gold_storage):
@@ -197,8 +195,8 @@ def test_adjustment_events(bronze_storage, gold_storage):
     events = stock.adjustment_events()
 
     assert events.height == 1
-    assert events.get_column("date").to_list()[0] == date(2024, 1, 15)
-    assert events.get_column("adjustment_factor").to_list()[0] == 0.5
+    assert events.get_column("date").to_list()[0] == date(2024, 1, 16)
+    assert events.get_column("adjustment_factor").to_list()[0] == pytest.approx(1 / 3)
 
 
 def test_stock_search_invalid_field(bronze_storage):
