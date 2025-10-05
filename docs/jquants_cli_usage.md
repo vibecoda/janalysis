@@ -18,10 +18,11 @@ Simple terminal programs to explore the J-Quants API using a refresh token in `.
 - Trading calendar: `python scripts/api/jq_trading_calendar.py --from 20250101 --to 20251231`
 
 ### Batch Processing Scripts (`scripts/batch/`)
-- Ingest daily quotes: `python scripts/batch/ingest_daily_quotes.py --date 20250530`
+- Full pipeline: `python scripts/batch/run_data_pipeline.py`
+- Ingest daily quotes: `python scripts/batch/ingest_daily_quotes.py`
 - Normalize quotes: `python scripts/batch/normalize_daily_quotes.py`
 - Transform prices: `python scripts/batch/transform_daily_prices.py`
-- Ingest listings: `python scripts/batch/ingest_listed_info.py --date 20250530`
+- Ingest listings: `python scripts/batch/ingest_listed_info.py`
 
 ### Demo Scripts (`scripts/demo/`)
 - Storage API demo: `python scripts/demo/demo_storage_apis.py`
