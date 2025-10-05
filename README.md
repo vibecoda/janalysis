@@ -82,7 +82,7 @@ sh get-docker.sh
 git clone <repository-url>
 cd janalysis
 
-# Install git hooks (IMPORTANT: Run this after cloning)
+# If you want to contribute, Install git hooks
 ./setup-hooks.sh
 
 # Use `uv` to create a venv
@@ -91,14 +91,23 @@ uv venv -p 3.13
 # Install dependencies
 uv pip install -e ".[dev]"
 ```
+Activate the virtual environment just created
+
+```bash
+source .venv/bin/activate
+```
 
 ### 2. Run Data Pipeline
+
+Make sure that you have updated your `.env` file with JQuantsAPI refresh token.
 
 ```bash
 # Run all tests
 python scripts/batch/run_data_pipeline.py
 ```
 ### 3. Run the demos in notebooks/stock_demo.ipynb
+
+You can make ues of vscodes inbuilt Jupyter extension or Jupyter server/lab.
 
 ## Git Hooks
 
