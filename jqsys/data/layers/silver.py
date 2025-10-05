@@ -7,6 +7,7 @@ optimized for financial analysis and feature engineering.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import date, datetime, timedelta
 from io import BytesIO
 from typing import Any
@@ -28,11 +29,13 @@ class SilverStorage:
         """Initialize silver storage.
 
         Args:
-            storage: BlobStorage instance to use. If None, uses "silver" backend from config.
+            storage: BlobStorage instance to use. If None, uses backend from SILVER_BACKEND
+                env var (defaults to "silver_fs" for filesystem storage).
             bronze_storage: Bronze storage instance for reading raw data
         """
         if storage is None:
-            storage = BlobStorage.from_name("silver")
+            backend_name = os.getenv("SILVER_BACKEND", "silver_fs")
+            storage = BlobStorage.from_name(backend_name)
 
         self.storage = storage
         self.bronze = bronze_storage or BronzeStorage()

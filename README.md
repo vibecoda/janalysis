@@ -21,9 +21,11 @@ brew install uv
 pip install uv
 ```
 
-### 2. Docker with Compose Support
+### 2. Docker with Compose Support (Optional)
 
-Docker is required for running local MinIO and MongoDB services.
+Docker is **only required** if you want to use MinIO object storage. The project works perfectly fine with local filesystem storage without Docker.
+
+If you want to use MinIO for object storage:
 
 **macOS**: We recommend [OrbStack](https://orbstack.dev/) as a fast, lightweight alternative to Docker Desktop:
 ```bash
@@ -39,6 +41,8 @@ sh get-docker.sh
 ```
 
 **Windows**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+**Note**: If you skip Docker, the project will use filesystem-based storage at `~/.jqsys/blob_storage/` by default. See [Storage Backend Configuration](#storage-backend-configuration) for details.
 
 ### 3. J-Quants API Token
 
@@ -199,20 +203,70 @@ jupyter notebook
 
 The project uses environment variables for configuration. See the [Prerequisites](#3-j-quants-api-token) section for details on setting up your J-Quants API token.
 
-Additional variables can be added to your `.env` file:
+Create a `.env` file in the project root with the following variables:
+
 ```bash
-# Required for J-Quants API access
+# Required: J-Quants API access
 JQ_REFRESH_TOKEN=your_token_here
 
-# Optional: Override default storage paths
-BRONZE_STORAGE_PATH=/path/to/bronze
-SILVER_STORAGE_PATH=/path/to/silver
-GOLD_STORAGE_PATH=/path/to/gold
+# Optional: Storage backend configuration (defaults to filesystem)
+BRONZE_BACKEND=bronze_fs  # Use "bronze" for MinIO
+SILVER_BACKEND=silver_fs  # Use "silver" for MinIO
+GOLD_BACKEND=gold_fs      # Use "gold" for MinIO
+
+# Optional: MinIO credentials (only needed if using MinIO)
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
 ```
 
-### Using MinIO Backend with Docker Compose
+### Storage Backend Configuration
 
-The project includes a MinIO backend for object storage. To use it locally:
+The project supports two storage backend modes:
+
+#### Option 1: Filesystem Storage (No Docker Required) - DEFAULT
+
+Use local filesystem storage for all data layers. This is the **default** and simplest setup - no Docker required!
+
+**Default storage location**: `~/.jqsys/blob_storage/`
+- Bronze layer: `~/.jqsys/blob_storage/bronze/`
+- Silver layer: `~/.jqsys/blob_storage/silver/`
+- Gold layer: `~/.jqsys/blob_storage/gold/`
+
+**No configuration needed** - the storage layers automatically use filesystem backends by default:
+
+```python
+from jqsys.data.layers.bronze import BronzeStorage
+from jqsys.data.layers.silver import SilverStorage
+from jqsys.data.layers.gold import GoldStorage
+from jqsys.fin import Stock
+
+# Just instantiate - uses filesystem storage by default
+bronze = BronzeStorage()
+silver = SilverStorage()
+gold = GoldStorage()
+
+# Stock API also works out of the box
+stock = Stock("7203")  # Toyota Motor
+```
+
+**Customizing storage paths**:
+
+You can customize storage locations using environment variables:
+
+```bash
+# Override individual layer backends
+export BRONZE_BACKEND=bronze_fs
+export SILVER_BACKEND=silver_fs
+export GOLD_BACKEND=gold_fs
+
+# Or modify configs/blob_backends.py to change DEFAULT_BASE_PATH
+```
+
+#### Option 2: MinIO Backend with Docker Compose
+
+Use MinIO for object storage (similar to AWS S3). This requires Docker.
+
+**Step 1: Start MinIO services**:
 
 ```bash
 # Start MinIO (and MongoDB) services
@@ -225,13 +279,33 @@ docker compose ps
 # Login: minioadmin / minioadmin
 ```
 
-The MinIO backend is configured in `configs/blob_backends.py` with the following backends:
+**Step 2: Configure your application to use MinIO**:
+
+Set environment variables to use MinIO backends instead of filesystem:
+
+```bash
+# Switch to MinIO backends
+export BRONZE_BACKEND=bronze
+export SILVER_BACKEND=silver
+export GOLD_BACKEND=gold
+```
+
+Or set them in your `.env` file:
+
+```bash
+# .env
+BRONZE_BACKEND=bronze
+SILVER_BACKEND=silver
+GOLD_BACKEND=gold
+```
+
+The MinIO backends are pre-configured in `configs/blob_backends.py`:
 - `minio`: Base MinIO configuration (localhost:9000, bucket: jq-data)
 - `bronze`, `silver`, `gold`: Storage layers with automatic prefix separation
   - Each layer uses the same bucket but different prefixes (bronze/, silver/, gold/)
   - Configuration uses inheritance to avoid duplication
 
-To stop the services:
+**Stop MinIO services**:
 
 ```bash
 docker compose down

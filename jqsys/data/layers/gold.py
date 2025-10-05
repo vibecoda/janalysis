@@ -7,6 +7,7 @@ optimized for single-stock queries and analysis.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import date
 from io import BytesIO
 from typing import Any
@@ -28,11 +29,13 @@ class GoldStorage:
         """Initialize gold storage.
 
         Args:
-            storage: BlobStorage instance to use. If None, uses "gold" backend from config.
+            storage: BlobStorage instance to use. If None, uses backend from GOLD_BACKEND
+                env var (defaults to "gold_fs" for filesystem storage).
             silver_storage: Silver storage instance for reading normalized data
         """
         if storage is None:
-            storage = BlobStorage.from_name("gold")
+            backend_name = os.getenv("GOLD_BACKEND", "gold_fs")
+            storage = BlobStorage.from_name(backend_name)
 
         self.storage = storage
         self.silver = silver_storage or SilverStorage()

@@ -50,6 +50,26 @@ CONFIGURATION = {
         "type": "filesystem",
         "base_path": str(DEFAULT_BASE_PATH / "dev"),
     },
+    # Base filesystem configuration for local storage (no Docker required)
+    "filesystem": {
+        "type": "filesystem",
+        "base_path": str(DEFAULT_BASE_PATH),
+    },
+    # Filesystem-based bronze layer (no Docker required)
+    "bronze_fs": {
+        "__inherits__": "filesystem",
+        "base_path": str(DEFAULT_BASE_PATH / "bronze"),
+    },
+    # Filesystem-based silver layer (no Docker required)
+    "silver_fs": {
+        "__inherits__": "filesystem",
+        "base_path": str(DEFAULT_BASE_PATH / "silver"),
+    },
+    # Filesystem-based gold layer (no Docker required)
+    "gold_fs": {
+        "__inherits__": "filesystem",
+        "base_path": str(DEFAULT_BASE_PATH / "gold"),
+    },
     # Local MinIO for testing
     "minio": {
         "type": "minio",
@@ -59,17 +79,17 @@ CONFIGURATION = {
         "bucket": "jq-data",
         "secure": False,
     },
-    # Base MinIO configuration for J-Quants data
+    # Base MinIO configuration for J-Quants data (requires Docker)
     "bronze": {
         "__inherits__": "minio",
         "prefix": "bronze",
     },
-    # Silver inherits from bronze, only overriding prefix
+    # Silver inherits from bronze, only overriding prefix (requires Docker)
     "silver": {
         "__inherits__": "bronze",
         "prefix": "silver",
     },
-    # Gold also inherits from bronze
+    # Gold also inherits from bronze (requires Docker)
     "gold": {
         "__inherits__": "bronze",
         "prefix": "gold",

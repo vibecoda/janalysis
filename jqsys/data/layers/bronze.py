@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import datetime
 from io import BytesIO
 from typing import Any
@@ -26,11 +27,13 @@ class BronzeStorage:
         """Initialize bronze storage.
 
         Args:
-            storage: BlobStorage instance to use. If None, uses "bronze" backend from config.
+            storage: BlobStorage instance to use. If None, uses backend from BRONZE_BACKEND
+                env var (defaults to "bronze_fs" for filesystem storage).
             add_metadata_columns: If True, adds _endpoint, _partition_date, _ingested_at, _metadata columns
         """
         if storage is None:
-            storage = BlobStorage.from_name("bronze")
+            backend_name = os.getenv("BRONZE_BACKEND", "bronze_fs")
+            storage = BlobStorage.from_name(backend_name)
 
         self.storage = storage
         self.add_metadata_columns = add_metadata_columns
