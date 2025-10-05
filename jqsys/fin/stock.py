@@ -421,6 +421,96 @@ class Stock:
         return unique_candidates[0]
 
     @staticmethod
+    def _compute_cumulative_adjustment(df: pl.DataFrame) -> pl.DataFrame:
+        """Add cumulative adjustment multiplier column to the dataframe.
+
+        The adjustment factor represents the ratio by which prices should be scaled
+        on a given date to account for corporate actions (e.g., stock splits, dividends).
+
+        This method computes the cumulative product of future adjustment factors,
+        which gives the total adjustment needed to bring historical prices to the
+        current scale. The calculation:
+
+        1. Shifts factors forward by one day (tomorrow's factor affects today's price)
+        2. Computes cumulative product backward in time (from most recent to oldest)
+        3. Returns multiplier that scales old prices to current equivalent values
+
+        Example:
+            date       factor    cumulative_multiplier
+            2024-01-01   1.0    -> 2.0  (1.0 * 2.0)
+            2024-01-02   2.0    -> 1.0  (identity, most recent)
+
+        Args:
+            df: DataFrame with an "adjustment_factor" column.
+
+        Returns:
+            DataFrame with added "_cumulative_adj" column.
+        """
+        if "adjustment_factor" not in df.columns:
+            return df.with_columns(pl.lit(1.0).alias("_cumulative_adj"))
+
+        # Shift factors forward (tomorrow's event affects today's adjustment)
+        # Then compute cumulative product backward in time
+        return df.with_columns(
+            pl.col("adjustment_factor")
+            .cast(pl.Float64)
+            .fill_null(1.0)
+            .shift(-1, fill_value=1.0)
+            .reverse()
+            .cum_prod()
+            .reverse()
+            .alias("_cumulative_adj")
+        )
+
+    @staticmethod
+    def _build_price_adjustments(
+        df: pl.DataFrame,
+        mode: Literal["add", "replace"],
+    ) -> list[pl.Expr]:
+        """Build expressions to adjust price columns (open, high, low, close)."""
+        multiplier = pl.col("_cumulative_adj")
+        exprs: list[pl.Expr] = []
+
+        for col in ("open", "high", "low", "close"):
+            if col in df.columns:
+                adjusted = pl.col(col).cast(pl.Float64) * multiplier
+                target_name = f"adj_{col}" if mode == "add" else col
+                exprs.append(adjusted.alias(target_name))
+
+        return exprs
+
+    @staticmethod
+    def _build_volume_adjustment(
+        df: pl.DataFrame,
+        mode: Literal["add", "replace"],
+    ) -> pl.Expr | None:
+        """Build expression to adjust volume (inverse of price adjustment)."""
+        if "volume" not in df.columns:
+            return None
+
+        # Volume scales inversely: if prices doubled, volume should halve
+        multiplier = pl.col("_cumulative_adj")
+        inverse_multiplier = pl.when(multiplier == 0).then(1.0).otherwise(1.0 / multiplier)
+
+        adjusted = pl.col("volume").cast(pl.Float64) * inverse_multiplier
+        target_name = "adj_volume" if mode == "add" else "volume"
+        return adjusted.alias(target_name)
+
+    @staticmethod
+    def _build_turnover_adjustment(
+        df: pl.DataFrame,
+        mode: Literal["add", "replace"],
+    ) -> pl.Expr | None:
+        """Build expression to adjust turnover value (same as price adjustment)."""
+        if "turnover_value" not in df.columns:
+            return None
+
+        multiplier = pl.col("_cumulative_adj")
+        adjusted = pl.col("turnover_value").cast(pl.Float64) * multiplier
+        target_name = "adj_turnover_value" if mode == "add" else "turnover_value"
+        return adjusted.alias(target_name)
+
+    @staticmethod
     def _apply_adjustments(
         df: pl.DataFrame,
         *,
@@ -428,50 +518,39 @@ class Stock:
         adjust_volume: bool,
         adjust_turnover: bool,
     ) -> pl.DataFrame:
+        """Apply adjustment factors to price, volume, and turnover columns.
+
+        Args:
+            df: Input dataframe with price data and adjustment_factor column.
+            mode: "add" creates new adj_* columns; "replace" overwrites originals.
+            adjust_volume: Whether to apply inverse adjustment to volume.
+            adjust_turnover: Whether to apply adjustment to turnover_value.
+
+        Returns:
+            DataFrame with adjusted columns as specified by mode.
+        """
         if "adjustment_factor" not in df.columns:
             return df
 
-        factor_series = (
-            df.get_column("adjustment_factor").cast(pl.Float64).fill_null(1.0)
-            if "adjustment_factor" in df.columns
-            else None
-        )
-        if factor_series is None:
-            return df
+        # Step 1: Compute cumulative adjustment multiplier
+        df = Stock._compute_cumulative_adjustment(df)
 
-        target_factor = factor_series[-1] if len(factor_series) else 1.0
-        if target_factor == 0 or target_factor is None:
-            target_factor = 1.0
-
-        factor_expr = pl.col("adjustment_factor").cast(pl.Float64).fill_null(1.0)
-        safe_factor = pl.when(factor_expr == 0).then(1.0).otherwise(factor_expr)
-        price_multiplier = pl.lit(target_factor) / safe_factor
-        volume_multiplier = safe_factor / pl.lit(target_factor)
-
+        # Step 2: Build adjustment expressions
         exprs: list[pl.Expr] = []
-        for col in ("open", "high", "low", "close"):
-            if col in df.columns:
-                exprs.append(
-                    (pl.col(col).cast(pl.Float64) * price_multiplier).alias(
-                        f"adj_{col}" if mode == "add" else col
-                    )
-                )
+        exprs.extend(Stock._build_price_adjustments(df, mode))
 
-        if adjust_volume and "volume" in df.columns:
-            exprs.append(
-                (pl.col("volume").cast(pl.Float64) * volume_multiplier).alias(
-                    "adj_volume" if mode == "add" else "volume"
-                )
-            )
+        if adjust_volume:
+            vol_expr = Stock._build_volume_adjustment(df, mode)
+            if vol_expr is not None:
+                exprs.append(vol_expr)
 
-        if adjust_turnover and "turnover_value" in df.columns:
-            exprs.append(
-                (pl.col("turnover_value").cast(pl.Float64) * price_multiplier).alias(
-                    "adj_turnover_value" if mode == "add" else "turnover_value"
-                )
-            )
+        if adjust_turnover:
+            turnover_expr = Stock._build_turnover_adjustment(df, mode)
+            if turnover_expr is not None:
+                exprs.append(turnover_expr)
 
         if not exprs:
-            return df
+            return df.drop("_cumulative_adj")
 
-        return df.with_columns(exprs)
+        # Step 3: Apply all adjustments and clean up
+        return df.with_columns(exprs).drop("_cumulative_adj")
