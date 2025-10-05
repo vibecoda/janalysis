@@ -32,5 +32,5 @@
 
 ## Security & Configuration Tips
 - Store API tokens in `.env` (`JQ_REFRESH_TOKEN` demo access until 2025‑05‑31). Load via `jqsys.core.utils.env.load_env_file_if_present` instead of hardcoding secrets.
-- Never commit `.env`, data extracts, or credentials; prefer environment variables (`JQSYS_DATA_ROOT`) for local paths.
+- Never commit `.env`, data extracts, or credentials; prefer environment variables (`BLOB_STORAGE_PATH`, `JQSYS_DEMO_BACKEND`) for local paths.
 - Review `docs/jquants_cli_usage.md` for approved API flows before adding new endpoints or scopes.

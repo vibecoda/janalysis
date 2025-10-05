@@ -30,11 +30,11 @@ class SilverStorage:
 
         Args:
             storage: BlobStorage instance to use. If None, uses backend from SILVER_BACKEND
-                env var (defaults to "silver_fs" for filesystem storage).
+                env var (defaults to "demo.silver" for filesystem storage).
             bronze_storage: Bronze storage instance for reading raw data
         """
         if storage is None:
-            backend_name = os.getenv("SILVER_BACKEND", "silver_fs")
+            backend_name = os.getenv("SILVER_BACKEND", "demo.silver")
             storage = BlobStorage.from_name(backend_name)
 
         self.storage = storage

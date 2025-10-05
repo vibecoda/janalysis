@@ -21,30 +21,7 @@ brew install uv
 pip install uv
 ```
 
-### 2. Docker with Compose Support (Optional)
-
-Docker is **only required** if you want to use MinIO object storage. The project works perfectly fine with local filesystem storage without Docker.
-
-If you want to use MinIO for object storage:
-
-**macOS**: We recommend [OrbStack](https://orbstack.dev/) as a fast, lightweight alternative to Docker Desktop:
-```bash
-# Install with Homebrew
-brew install orbstack
-```
-
-**Linux**: Install Docker Engine and Docker Compose:
-```bash
-# See https://docs.docker.com/engine/install/
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
-```
-
-**Windows**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-
-**Note**: If you skip Docker, the project will use filesystem-based storage at `~/.jqsys/blob_storage/` by default. See [Storage Backend Configuration](#storage-backend-configuration) for details.
-
-### 3. J-Quants API Token
+### 2. J-Quants API Token
 
 You'll need a refresh token from J-Quants to access their API:
 
@@ -70,6 +47,30 @@ You'll need a refresh token from J-Quants to access their API:
    echo 'export JQ_REFRESH_TOKEN=your_token_here' >> ~/.zshrc
    source ~/.zshrc
    ```
+
+### 3. Docker with Compose Support (Optional)
+
+Docker is **only required** if you want to use MinIO object storage. The project works perfectly fine with local filesystem storage without Docker.
+
+If you want to use MinIO for object storage:
+
+**macOS**: We recommend [OrbStack](https://orbstack.dev/) as a fast, lightweight alternative to Docker Desktop:
+```bash
+# Install with Homebrew
+brew install orbstack
+```
+
+**Linux**: Install Docker Engine and Docker Compose:
+```bash
+# See https://docs.docker.com/engine/install/
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+```
+
+**Windows**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+**Note**: If you skip Docker, the project will use filesystem-based storage at `./var/blob_storage/` by default. See [Storage Backend Configuration](#storage-backend-configuration) for details.
+
 
 **Important**: The `.env` file is gitignored and safe for local tokens. Never commit tokens to version control.
 
@@ -209,14 +210,18 @@ Create a `.env` file in the project root with the following variables:
 # Required: J-Quants API access
 JQ_REFRESH_TOKEN=your_token_here
 
-# Optional: Storage backend configuration (defaults to filesystem)
-BRONZE_BACKEND=bronze_fs  # Use "bronze" for MinIO
-SILVER_BACKEND=silver_fs  # Use "silver" for MinIO
-GOLD_BACKEND=gold_fs      # Use "gold" for MinIO
+# Optional: Storage backend configuration
+# Switch the demo namespace (bronze/silver/gold) to MinIO instead of filesystem
+JQSYS_DEMO_BACKEND=minio  # Defaults to filesystem when unset
 
-# Optional: MinIO credentials (only needed if using MinIO)
+# Override the filesystem storage root (defaults to ./var/blob_storage/)
+BLOB_STORAGE_PATH=/absolute/path/to/blob_storage
+
+# Optional: MinIO credentials (only needed when JQSYS_DEMO_BACKEND=minio)
+MINIO_ENDPOINT=localhost:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET=jq-data
 ```
 
 ### Storage Backend Configuration
@@ -227,10 +232,10 @@ The project supports two storage backend modes:
 
 Use local filesystem storage for all data layers. This is the **default** and simplest setup - no Docker required!
 
-**Default storage location**: `~/.jqsys/blob_storage/`
-- Bronze layer: `~/.jqsys/blob_storage/bronze/`
-- Silver layer: `~/.jqsys/blob_storage/silver/`
-- Gold layer: `~/.jqsys/blob_storage/gold/`
+**Default storage location**: `./var/blob_storage/`
+- Bronze layer: `./var/blob_storage/bronze/`
+- Silver layer: `./var/blob_storage/silver/`
+- Gold layer: `./var/blob_storage/gold/`
 
 **No configuration needed** - the storage layers automatically use filesystem backends by default:
 
@@ -249,17 +254,23 @@ gold = GoldStorage()
 stock = Stock("7203")  # Toyota Motor
 ```
 
-**Customizing storage paths**:
+**Customizing storage**:
 
-You can customize storage locations using environment variables:
+You can adjust the demo namespace or override individual layers with environment variables:
 
 ```bash
-# Override individual layer backends
-export BRONZE_BACKEND=bronze_fs
-export SILVER_BACKEND=silver_fs
-export GOLD_BACKEND=gold_fs
+# Switch the demo namespace (bronze/silver/gold) to MinIO
+export JQSYS_DEMO_BACKEND=minio
 
-# Or modify configs/blob_backends.py to change DEFAULT_BASE_PATH
+# Use a custom filesystem location for demo storage
+export BLOB_STORAGE_PATH=$PWD/.local/blob_storage
+
+# Point a single layer at a different backend name (advanced)
+export BRONZE_BACKEND=demo.bronze
+export SILVER_BACKEND=demo.silver
+export GOLD_BACKEND=demo.gold
+
+# You can also modify configs/blob_backends.py to register additional backends
 ```
 
 #### Option 2: MinIO Backend with Docker Compose
@@ -281,29 +292,21 @@ docker compose ps
 
 **Step 2: Configure your application to use MinIO**:
 
-Set environment variables to use MinIO backends instead of filesystem:
+Switch the demo namespace to MinIO by setting the following environment variables
+(the defaults are shown for reference):
 
 ```bash
-# Switch to MinIO backends
-export BRONZE_BACKEND=bronze
-export SILVER_BACKEND=silver
-export GOLD_BACKEND=gold
+export JQSYS_DEMO_BACKEND=minio
+export MINIO_ENDPOINT=${MINIO_ENDPOINT:-localhost:9000}
+export MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+export MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+export MINIO_BUCKET=${MINIO_BUCKET:-jq-data}
 ```
 
-Or set them in your `.env` file:
-
-```bash
-# .env
-BRONZE_BACKEND=bronze
-SILVER_BACKEND=silver
-GOLD_BACKEND=gold
-```
-
-The MinIO backends are pre-configured in `configs/blob_backends.py`:
-- `minio`: Base MinIO configuration (localhost:9000, bucket: jq-data)
-- `bronze`, `silver`, `gold`: Storage layers with automatic prefix separation
-  - Each layer uses the same bucket but different prefixes (bronze/, silver/, gold/)
-  - Configuration uses inheritance to avoid duplication
+Add the same entries to your `.env` file if you prefer a persistent setup. When
+`JQSYS_DEMO_BACKEND=minio`, the `demo.bronze`, `demo.silver`, and `demo.gold`
+backends automatically use MinIO with prefixes for each layer—no additional
+per-layer configuration is required.
 
 **Stop MinIO services**:
 

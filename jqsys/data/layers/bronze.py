@@ -28,11 +28,11 @@ class BronzeStorage:
 
         Args:
             storage: BlobStorage instance to use. If None, uses backend from BRONZE_BACKEND
-                env var (defaults to "bronze_fs" for filesystem storage).
+                env var (defaults to "demo.bronze" for filesystem storage).
             add_metadata_columns: If True, adds _endpoint, _partition_date, _ingested_at, _metadata columns
         """
         if storage is None:
-            backend_name = os.getenv("BRONZE_BACKEND", "bronze_fs")
+            backend_name = os.getenv("BRONZE_BACKEND", "demo.bronze")
             storage = BlobStorage.from_name(backend_name)
 
         self.storage = storage

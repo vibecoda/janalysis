@@ -30,11 +30,11 @@ class GoldStorage:
 
         Args:
             storage: BlobStorage instance to use. If None, uses backend from GOLD_BACKEND
-                env var (defaults to "gold_fs" for filesystem storage).
+                env var (defaults to "demo.gold" for filesystem storage).
             silver_storage: Silver storage instance for reading normalized data
         """
         if storage is None:
-            backend_name = os.getenv("GOLD_BACKEND", "gold_fs")
+            backend_name = os.getenv("GOLD_BACKEND", "demo.gold")
             storage = BlobStorage.from_name(backend_name)
 
         self.storage = storage

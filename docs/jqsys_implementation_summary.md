@@ -87,7 +87,7 @@ jqsys/
 - **Metadata Tracking**: Ingestion timestamps and request metadata
 - **Parquet Format**: Efficient columnar storage with Snappy compression
 - **Data Lineage**: Preserves original API responses for reprocessing
-- **Environment Variable Support**: Respects `JQSYS_DATA_ROOT` for flexible data directory configuration
+- **Environment Variable Support**: Respects `BRONZE_BACKEND` overrides (defaults to `demo.bronze`) and shared `BLOB_STORAGE_PATH`
 - **Automatic Provisioning**: Creates the bronze directory tree on demand and keeps `empty.parquet` sentinels for requests that returned no rows
 
 **Key Methods**:
@@ -105,7 +105,7 @@ jqsys/
 - **Data Quality Validation**: Checks for null values, reasonable prices, OHLC relationships
 - **Type Safety**: Proper data type casting and validation
 - **Calculated Fields**: Automatic adjusted close price calculations
-- **Environment Variable Support**: Respects `JQSYS_DATA_ROOT` for flexible data directory configuration
+- **Environment Variable Support**: Respects `SILVER_BACKEND` overrides (defaults to `demo.silver`) and mirrors `JQSYS_DEMO_BACKEND`
 
 **Key Methods**:
 - `normalize_daily_quotes()`: Transform raw quotes to normalized schema
@@ -136,7 +136,7 @@ Additional metadata fields preserved
   - Automatic connection pooling in production environments
 - **Security**: Parameterized queries prevent SQL injection attacks
 - **Data Type Safety**: Automatic date type conversion for consistency
-- **Environment Variable Support**: Respects `JQSYS_DATA_ROOT` for flexible data directory configuration
+- **Environment Variable Support**: Respects `QueryEngine` backend overrides (defaults to `demo` namespace) and `BLOB_STORAGE_PATH`
 - **Test-Friendly Architecture**: Singleton pattern is disabled during testing for isolation
 
 **Key Methods**:
@@ -200,25 +200,29 @@ Raw API Data → Bronze Layer → Silver Layer → Gold Layer (Future)
 
 ### Data Directory Configuration
 
-The storage layer supports flexible data directory configuration via the `JQSYS_DATA_ROOT` environment variable:
+The storage layer now defaults to a project-local directory so new users can run the toolkit without Docker or extra setup:
 
-- **Default Behavior**: When no environment variable is set, uses relative "data" directory
-- **Environment Override**: Set `JQSYS_DATA_ROOT=/path/to/your/data` to use custom location
-- **Notebook Support**: Enables notebooks to work from any directory by setting the correct data path
+- **Default Behavior**: Stores blobs under `./var/blob_storage/` inside the repository
+- **Environment Override**: Set `BLOB_STORAGE_PATH=/path/to/blob_storage` to change the shared base path used by the filesystem backends directly
+- **Backend Toggle**: Set `JQSYS_DEMO_BACKEND=minio` to switch the demo namespace (bronze/silver/gold) to MinIO
 
 **Example Usage**:
 ```bash
-# In shell or .env file
-export JQSYS_DATA_ROOT=/Users/username/project/data
+# Use a custom filesystem directory
+export BLOB_STORAGE_PATH=/Users/username/project/blob_storage
 
-# Or in .env file
-JQSYS_DATA_ROOT=/Users/username/project/data
+# Switch the demo namespace to MinIO
+export JQSYS_DEMO_BACKEND=minio
+export MINIO_ENDPOINT=localhost:9000
+export MINIO_ACCESS_KEY=minioadmin
+export MINIO_SECRET_KEY=minioadmin
+export MINIO_BUCKET=jq-data
 ```
 
 **Affected Components**:
-- `BronzeStorage()` - defaults to `$JQSYS_DATA_ROOT/bronze`
-- `SilverStorage()` - defaults to `$JQSYS_DATA_ROOT/silver`
-- `QueryEngine()` - defaults to `$JQSYS_DATA_ROOT/bronze`, `$JQSYS_DATA_ROOT/silver`, `$JQSYS_DATA_ROOT/gold`
+- `BronzeStorage()` - defaults to the `demo.bronze` backend
+- `SilverStorage()` - defaults to the `demo.silver` backend
+- `QueryEngine()` - defaults to `demo.bronze`, `demo.silver`, `demo.gold`
 
 ### Authentication Configuration
 
@@ -331,7 +335,7 @@ Environment variables for J-Quants API access:
    - Proper handling of month boundary edge cases
 
 ### Latest Improvements (December 2024)
-1. **Environment Variable Support**: Added `JQSYS_DATA_ROOT` configuration for flexible data directory paths
+1. **Environment Variable Support**: Added `JQSYS_DEMO_BACKEND` toggle and `BLOB_STORAGE_PATH` override for flexible data directory paths
    - Enables notebooks to work from any directory location
    - Supports both environment variables and .env file configuration
    - Backward compatible with existing hardcoded paths
