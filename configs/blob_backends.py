@@ -45,6 +45,9 @@ import os
 from pathlib import Path
 from typing import Any
 
+from jqsys.core.utils.env import load_env_file_if_present
+
+load_env_file_if_present()  # Load .env file if present
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
