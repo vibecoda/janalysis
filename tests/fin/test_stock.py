@@ -70,7 +70,10 @@ def gold_storage(tmp_path) -> GoldStorage:
                 "low": 99.0,
                 "close": 103.0,
                 "volume": 150000,
-                "adj_close": 103.0,
+                "turnover_value": 12500000.0,
+                "adjustment_factor": 0.5,
+                "adj_close": 51.5,
+                "processed_at": "2024-01-15T10:00:00",
             },
             {
                 "code": "13010",
@@ -80,7 +83,10 @@ def gold_storage(tmp_path) -> GoldStorage:
                 "low": 101.0,
                 "close": 104.5,
                 "volume": 160000,
+                "turnover_value": 16640000.0,
+                "adjustment_factor": 1.0,
                 "adj_close": 104.5,
+                "processed_at": "2024-01-16T10:00:00",
             },
         ]
     )
@@ -148,6 +154,51 @@ def test_stock_instantiation_with_five_digit_code(bronze_storage, gold_storage):
 
     info = stock.get_listed_info()
     assert info["Code"] == "13010"
+
+
+def test_adjusted_price_history(bronze_storage, gold_storage):
+    stock = Stock("1301", bronze_storage=bronze_storage, gold_storage=gold_storage)
+
+    history = stock.get_price_history(adjust="add").sort("date")
+
+    assert {"adj_open", "adj_high", "adj_low", "adj_close", "adj_volume"}.issubset(
+        set(history.columns)
+    )
+
+    adjusted_opens = history.select("adj_open").to_series().to_list()
+    assert adjusted_opens == [50.5, 102.0]
+
+    adjusted_volume = history.select("adj_volume").to_series().to_list()
+    assert adjusted_volume == [300000.0, 160000.0]
+
+
+def test_convenience_series_methods(bronze_storage, gold_storage):
+    stock = Stock("1301", bronze_storage=bronze_storage, gold_storage=gold_storage)
+
+    closes = stock.close_series().to_list()
+    assert closes == [51.5, 104.5]
+
+    raw_closes = stock.close_series(adjusted=False).to_list()
+    assert raw_closes == [103.0, 104.5]
+
+    volumes = stock.volume_series().to_list()
+    assert volumes == [300000.0, 160000.0]
+
+    turnover = stock.turnover_series().to_list()
+    assert turnover == [12500000.0, 16640000.0]
+
+    factors = stock.adjustment_factor_series().to_list()
+    assert factors == [0.5, 1.0]
+
+
+def test_adjustment_events(bronze_storage, gold_storage):
+    stock = Stock("1301", bronze_storage=bronze_storage, gold_storage=gold_storage)
+
+    events = stock.adjustment_events()
+
+    assert events.height == 1
+    assert events.get_column("date").to_list()[0] == date(2024, 1, 15)
+    assert events.get_column("adjustment_factor").to_list()[0] == 0.5
 
 
 def test_stock_search_invalid_field(bronze_storage):

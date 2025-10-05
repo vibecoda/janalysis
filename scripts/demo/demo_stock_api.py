@@ -68,7 +68,7 @@ def main() -> int:
             print(f"{key}: {info.get(key)}")
 
         print_header("PRICE HISTORY")
-        history = primary.get_price_history()
+        history = primary.get_price_history(adjust="add")
         if history.is_empty():
             print("No price data found in gold storage for this stock.")
         else:
@@ -76,6 +76,9 @@ def main() -> int:
             latest = primary.get_latest_price()
             if latest:
                 print("\nMost recent close:", latest.get("close"))
+
+            print("\nAdjusted close series (latest 5):")
+            print(primary.close_series().tail(5))
 
         return 0
 

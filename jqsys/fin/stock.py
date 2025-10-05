@@ -175,22 +175,179 @@ class Stock:
         end_date: date | datetime | str | None = None,
         *,
         columns: Iterable[str] | None = None,
+        adjust: Literal["none", "add", "replace"] = "none",
+        adjust_volume: bool = True,
+        adjust_turnover: bool = False,
     ) -> pl.DataFrame:
-        """Fetch price history for the stock from the gold layer."""
+        """Fetch price history for the stock from the gold layer.
+
+        Args:
+            start_date: Optional inclusive start boundary.
+            end_date: Optional inclusive end boundary.
+            columns: Optional subset of columns to return.
+            adjust: Control how adjusted price columns are produced:
+                - ``"none"``: return raw values as stored.
+                - ``"add"``: add ``adj_<column>`` alongside the raw columns.
+                - ``"replace"``: overwrite price (and optionally volume/turnover)
+                  columns with adjusted values.
+            adjust_volume: When adjustments are applied, scale volume columns
+                using the inverse adjustment factor (default True).
+            adjust_turnover: When True and adjustments are applied, also scale
+                turnover values using the adjustment factor. Disabled by
+                default as turnover is typically invariant.
+        """
         start = self._normalise_date(start_date) if start_date else None
         end = self._normalise_date(end_date) if end_date else None
-        cols = list(columns) if columns is not None else None
-
-        return self._gold.read_stock_prices(
+        df = self._gold.read_stock_prices(
             code=self.code,
             start_date=start,
             end_date=end,
-            columns=cols,
+            columns=None,
         )
 
-    def get_latest_price(self, *, columns: Iterable[str] | None = None) -> dict[str, Any] | None:
+        if df.is_empty():
+            return df.select(columns) if columns else df
+
+        if "date" in df.columns:
+            df = df.sort("date")
+
+        if adjust != "none":
+            df = self._apply_adjustments(
+                df,
+                mode=adjust,
+                adjust_volume=adjust_volume,
+                adjust_turnover=adjust_turnover,
+            )
+
+        if columns:
+            cols = list(columns)
+            missing = [col for col in cols if col not in df.columns]
+            if missing:
+                raise ValueError(f"Requested columns not present: {missing}")
+            df = df.select(cols)
+
+        return df
+
+    def open_series(
+        self,
+        start_date: date | datetime | str | None = None,
+        end_date: date | datetime | str | None = None,
+        *,
+        adjusted: bool = True,
+    ) -> pl.Series:
+        mode: Literal["none", "add", "replace"] = "replace" if adjusted else "none"
+        df = self.get_price_history(start_date, end_date, columns=["open"], adjust=mode)
+        return df.get_column("open")
+
+    def high_series(
+        self,
+        start_date: date | datetime | str | None = None,
+        end_date: date | datetime | str | None = None,
+        *,
+        adjusted: bool = True,
+    ) -> pl.Series:
+        mode: Literal["none", "add", "replace"] = "replace" if adjusted else "none"
+        df = self.get_price_history(start_date, end_date, columns=["high"], adjust=mode)
+        return df.get_column("high")
+
+    def low_series(
+        self,
+        start_date: date | datetime | str | None = None,
+        end_date: date | datetime | str | None = None,
+        *,
+        adjusted: bool = True,
+    ) -> pl.Series:
+        mode: Literal["none", "add", "replace"] = "replace" if adjusted else "none"
+        df = self.get_price_history(start_date, end_date, columns=["low"], adjust=mode)
+        return df.get_column("low")
+
+    def close_series(
+        self,
+        start_date: date | datetime | str | None = None,
+        end_date: date | datetime | str | None = None,
+        *,
+        adjusted: bool = True,
+    ) -> pl.Series:
+        mode: Literal["none", "add", "replace"] = "replace" if adjusted else "none"
+        df = self.get_price_history(start_date, end_date, columns=["close"], adjust=mode)
+        return df.get_column("close")
+
+    def volume_series(
+        self,
+        start_date: date | datetime | str | None = None,
+        end_date: date | datetime | str | None = None,
+        *,
+        adjusted: bool = True,
+    ) -> pl.Series:
+        mode: Literal["none", "add", "replace"] = "replace" if adjusted else "none"
+        df = self.get_price_history(start_date, end_date, columns=["volume"], adjust=mode)
+        return df.get_column("volume")
+
+    def turnover_series(
+        self,
+        start_date: date | datetime | str | None = None,
+        end_date: date | datetime | str | None = None,
+        *,
+        adjusted: bool = False,
+    ) -> pl.Series:
+        mode: Literal["none", "add", "replace"] = "replace" if adjusted else "none"
+        df = self.get_price_history(
+            start_date,
+            end_date,
+            columns=["turnover_value"],
+            adjust=mode,
+            adjust_turnover=adjusted,
+        )
+        return df.get_column("turnover_value")
+
+    def adjustment_factor_series(
+        self,
+        start_date: date | datetime | str | None = None,
+        end_date: date | datetime | str | None = None,
+    ) -> pl.Series:
+        df = self.get_price_history(start_date, end_date, columns=["adjustment_factor"])
+        return df.get_column("adjustment_factor")
+
+    def adjustment_events(
+        self,
+        *,
+        start_date: date | datetime | str | None = None,
+        end_date: date | datetime | str | None = None,
+        tolerance: float = 1e-9,
+    ) -> pl.DataFrame:
+        """Return dates where the adjustment factor differs from 1.0.
+
+        Args:
+            start_date: Optional inclusive start boundary to inspect.
+            end_date: Optional inclusive end boundary to inspect.
+            tolerance: Absolute tolerance when comparing against 1.0.
+
+        Returns:
+            DataFrame containing ``date`` and ``adjustment_factor`` rows with
+            material adjustments.
+        """
+        df = self.get_price_history(
+            start_date,
+            end_date,
+            columns=["date", "adjustment_factor"],
+        )
+
+        if df.is_empty():
+            return df
+
+        return df.filter(
+            pl.col("adjustment_factor").fill_null(1.0).cast(pl.Float64).sub(1.0).abs() > tolerance
+        )
+
+    def get_latest_price(
+        self,
+        *,
+        columns: Iterable[str] | None = None,
+        adjusted: bool = True,
+    ) -> dict[str, Any] | None:
         """Return the latest price record as a mapping, if available."""
-        history = self.get_price_history(columns=columns)
+        mode: Literal["none", "add", "replace"] = "replace" if adjusted else "none"
+        history = self.get_price_history(columns=columns, adjust=mode)
         if history.is_empty():
             return None
         return history.sort("date").row(-1, named=True)
@@ -262,3 +419,45 @@ class Stock:
             if candidate.endswith("0"):
                 return candidate
         return unique_candidates[0]
+
+    @staticmethod
+    def _apply_adjustments(
+        df: pl.DataFrame,
+        *,
+        mode: Literal["add", "replace"],
+        adjust_volume: bool,
+        adjust_turnover: bool,
+    ) -> pl.DataFrame:
+        if "adjustment_factor" not in df.columns:
+            return df
+
+        factor = pl.col("adjustment_factor").cast(pl.Float64).fill_null(1.0)
+        safe_divisor = pl.when(factor == 0).then(1.0).otherwise(factor)
+
+        exprs: list[pl.Expr] = []
+        for col in ("open", "high", "low", "close"):
+            if col in df.columns:
+                exprs.append(
+                    (pl.col(col).cast(pl.Float64) * factor).alias(
+                        f"adj_{col}" if mode == "add" else col
+                    )
+                )
+
+        if adjust_volume and "volume" in df.columns:
+            exprs.append(
+                (pl.col("volume").cast(pl.Float64) / safe_divisor).alias(
+                    "adj_volume" if mode == "add" else "volume"
+                )
+            )
+
+        if adjust_turnover and "turnover_value" in df.columns:
+            exprs.append(
+                (pl.col("turnover_value").cast(pl.Float64) * factor).alias(
+                    "adj_turnover_value" if mode == "add" else "turnover_value"
+                )
+            )
+
+        if not exprs:
+            return df
+
+        return df.with_columns(exprs)
