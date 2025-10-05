@@ -2,6 +2,73 @@
 
 Tools for financial analysis of Japanese Equities. Currently contains integation with JQuants API to fetch, normalize and store stock data. Also contains, a framework to store blob storage using different backends.
 
+## Prerequisites
+
+Before getting started, ensure you have the following installed:
+
+### 1. uv (Python Package Manager)
+
+[uv](https://docs.astral.sh/uv/) is a fast Python package installer and resolver.
+
+```bash
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Or with Homebrew (macOS)
+brew install uv
+
+# Or with pip
+pip install uv
+```
+
+### 2. Docker with Compose Support
+
+Docker is required for running local MinIO and MongoDB services.
+
+**macOS**: We recommend [OrbStack](https://orbstack.dev/) as a fast, lightweight alternative to Docker Desktop:
+```bash
+# Install with Homebrew
+brew install orbstack
+```
+
+**Linux**: Install Docker Engine and Docker Compose:
+```bash
+# See https://docs.docker.com/engine/install/
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+```
+
+**Windows**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+### 3. J-Quants API Token
+
+You'll need a refresh token from J-Quants to access their API:
+
+1. Sign up for a J-Quants account at [https://jpx-jquants.com/](https://jpx-jquants.com/)
+2. Navigate to your account settings or API section
+3. Generate a **refresh token** (also called API token)
+4. Add the token to your environment:
+
+   **Option A: Create a `.env` file** (recommended for local development):
+   ```bash
+   # In the project root directory
+   echo "JQ_REFRESH_TOKEN=your_token_here" > .env
+   ```
+
+   **Option B: Export as environment variable**:
+   ```bash
+   export JQ_REFRESH_TOKEN=your_token_here
+   ```
+
+   **Option C: Add to your shell profile** (for persistent configuration):
+   ```bash
+   # Add to ~/.bashrc, ~/.zshrc, or equivalent
+   echo 'export JQ_REFRESH_TOKEN=your_token_here' >> ~/.zshrc
+   source ~/.zshrc
+   ```
+
+**Important**: The `.env` file is gitignored and safe for local tokens. Never commit tokens to version control.
+
 ## Quick Start
 
 ### 1. Clone and Setup
@@ -86,24 +153,61 @@ jqsys/
 │   └── utils/              # Shared utilities
 │       ├── config.py       # Configuration with inheritance
 │       └── env.py          # Environment variables
-└── data/                    # Data layer
-    ├── auth.py             # J-Quants authentication
-    ├── client.py           # J-Quants API client
-    ├── ingest.py           # Data ingestion utilities
-    ├── layers/             # Storage layers
-    │   ├── bronze.py       # Raw data storage
-    │   ├── silver.py       # Normalized data storage
-    │   └── gold.py         # Stock-centric storage
-    ├── query.py            # SQL query engine
-    ├── stock.py            # Stock analysis API
-    └── portfolio.py        # Portfolio management API
+├── data/                    # Data layer
+│   ├── auth.py             # J-Quants authentication
+│   ├── client.py           # J-Quants API client
+│   ├── ingest.py           # Data ingestion utilities
+│   ├── layers/             # Storage layers
+│   │   ├── bronze.py       # Raw data storage
+│   │   ├── silver.py       # Normalized data storage
+│   │   └── gold.py         # Stock-centric storage
+│   ├── query.py            # SQL query engine
+│   ├── stock.py            # Stock analysis API
+│   └── portfolio.py        # Portfolio management API
+├── fin/                     # Financial domain APIs
+│   └── stock.py            # Stock API with price adjustments
+├── notebooks/               # Jupyter notebooks
+│   └── stock_demo.ipynb    # Stock API demo with plotting
+└── scripts/                 # Utility scripts
+    ├── batch/              # Batch data ingestion
+    └── demo/               # Demo scripts
+```
+
+### Jupyter Notebooks
+
+The `notebooks/` directory contains interactive examples demonstrating the Stock API:
+
+- **`stock_demo.ipynb`**: Comprehensive demo showing:
+  - Stock search and instantiation
+  - Price history retrieval with date filtering
+  - Visualization of close prices, volume, and OHLC data
+  - Adjustment factor handling for corporate actions
+  - Using convenience methods (close_series, volume_series, etc.)
+
+To run the notebooks:
+```bash
+# Install Jupyter if not already installed (included in dev dependencies)
+uv pip install -e ".[dev]"
+
+# Start Jupyter
+jupyter notebook
+
+# Navigate to notebooks/stock_demo.ipynb
 ```
 
 ### Environment Variables
 
+The project uses environment variables for configuration. See the [Prerequisites](#3-j-quants-api-token) section for details on setting up your J-Quants API token.
+
+Additional variables can be added to your `.env` file:
 ```bash
 # Required for J-Quants API access
-export JQ_REFRESH_TOKEN=your_token_here
+JQ_REFRESH_TOKEN=your_token_here
+
+# Optional: Override default storage paths
+BRONZE_STORAGE_PATH=/path/to/bronze
+SILVER_STORAGE_PATH=/path/to/silver
+GOLD_STORAGE_PATH=/path/to/gold
 ```
 
 ### Using MinIO Backend with Docker Compose
