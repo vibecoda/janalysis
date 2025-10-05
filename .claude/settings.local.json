@@ -17,7 +17,8 @@
       "Bash(chmod:*)",
       "Bash(python -m pytest tests/test_gold_storage.py -v)",
       "Bash(python:*)",
-      "Bash(pytest:*)"
+      "Bash(pytest:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []

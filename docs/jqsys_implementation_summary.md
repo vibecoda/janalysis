@@ -8,21 +8,37 @@ The `jqsys` module is a lightweight J-Quants utilities package designed for CLI 
 
 ```
 jqsys/
-├── __init__.py          # Package initialization and exports
-├── auth.py              # Authentication and token management
-├── client.py            # HTTP client with retry logic and pagination
-├── storage/             # Data storage layer
-│   ├── __init__.py      # Storage layer exports
-│   ├── bronze.py        # Raw data storage (bronze layer)
-│   ├── silver.py        # Normalized timeseries data (silver layer) 
-│   └── query.py         # DuckDB-based analytical queries
-└── utils/
-    └── env.py           # Environment file utilities
+├── __init__.py              # Package initialization and exports
+├── core/                    # Core infrastructure
+│   ├── storage/             # Data storage abstraction layer
+│   │   ├── __init__.py      # Storage exports
+│   │   ├── blob.py          # Blob storage interface
+│   │   ├── object.py        # Object storage interface
+│   │   ├── registry.py      # Backend registry
+│   │   └── backends/        # Storage backend implementations
+│   │       ├── filesystem_backend.py  # Local filesystem storage
+│   │       ├── minio_backend.py       # MinIO/S3 storage
+│   │       ├── mongodb_backend.py     # MongoDB storage
+│   │       └── prefixed_backend.py    # Namespace wrapper
+│   └── utils/               # Core utilities
+│       ├── config.py        # Configuration management
+│       └── env.py           # Environment file utilities
+├── data/                    # Data ingestion and processing
+│   ├── auth.py              # J-Quants authentication
+│   ├── client.py            # J-Quants API client
+│   ├── ingest.py            # Data ingestion pipelines
+│   └── layers/              # Data lake layers
+│       ├── bronze.py        # Raw data storage (bronze layer)
+│       ├── silver.py        # Normalized timeseries (silver layer)
+│       ├── gold.py          # Feature-engineered data (gold layer)
+│       └── query.py         # DuckDB analytical queries
+└── fin/                     # Financial analysis modules
+    └── stock.py             # Stock and portfolio analysis
 ```
 
 ## Core Components
 
-### 1. Authentication Module (`auth.py`)
+### 1. Authentication Module (`data/auth.py`)
 
 **Purpose**: Manages J-Quants API authentication using refresh tokens and ID tokens.
 
@@ -42,7 +58,7 @@ jqsys/
 - Follows J-Quants authentication flow with query parameters
 - Handles both JSON and text error responses
 
-### 2. HTTP Client Module (`client.py`)
+### 2. HTTP Client Module (`data/client.py`)
 
 **Purpose**: Provides a robust HTTP client for J-Quants API interactions.
 
@@ -62,7 +78,7 @@ jqsys/
 
 ### 3. Storage Layer
 
-#### Bronze Layer (`storage/bronze.py`)
+#### Bronze Layer (`data/layers/bronze.py`)
 
 **Purpose**: Raw data storage for J-Quants API responses with minimal processing.
 
@@ -80,7 +96,7 @@ jqsys/
 - `list_available_dates(endpoint)`: Scans the endpoint’s partition folders, returning only the dates that actually have a `data.parquet` file on disk.
 - `get_storage_stats()`: Aggregates a quick inventory of endpoints, counting populated dates/files and summing their on-disk size (MB, rounded to two decimals).
 
-#### Silver Layer (`storage/silver.py`)
+#### Silver Layer (`data/layers/silver.py`)
 
 **Purpose**: Normalized timeseries data with data quality validation.
 
@@ -106,7 +122,7 @@ Volume → int64
 Additional metadata fields preserved
 ```
 
-#### Query Engine (`storage/query.py`)
+#### Query Engine (`data/layers/query.py`)
 
 **Purpose**: DuckDB-based analytical query interface for financial analysis.
 
@@ -130,7 +146,37 @@ Additional metadata fields preserved
 - `find_missing_data()`: Data gap analysis with proper date handling
 - `get_market_data_coverage()`: Market coverage statistics
 
-### 4. Utilities Module (`utils/env.py`)
+### 4. Core Storage Infrastructure (`core/storage/`)
+
+**Purpose**: Pluggable storage backend system supporting multiple storage technologies.
+
+**Key Components**:
+- **Backend Registry**: Dynamic backend registration and retrieval with inheritance support
+- **Blob Storage Interface**: Key-value storage abstraction for arbitrary data
+- **Object Storage Interface**: Typed object storage with versioning capabilities
+- **Multiple Backends**: Filesystem (default), MinIO/S3, MongoDB support
+
+**Key Features**:
+- **Backend Flexibility**: Switch between filesystem, cloud, and database storage
+- **Namespace Support**: Isolated storage namespaces via prefixed backends
+- **Type Safety**: Structured object storage with Python dataclass support
+- **Unified API**: Consistent interface across all storage backends
+
+### 5. Financial Analysis Module (`fin/stock.py`)
+
+**Purpose**: High-level API for stock and portfolio analysis.
+
+**Key Classes**:
+- `Stock`: Individual stock analysis with price history, returns, statistics
+- `Portfolio`: Multi-stock portfolio management and analysis
+
+**Key Features**:
+- **QueryEngine Integration**: Seamless DuckDB query execution
+- **Time Series Analysis**: Historical prices, returns calculations
+- **Statistical Summaries**: Built-in summary statistics for stocks
+- **Portfolio Analytics**: Cross-stock analysis and correlation studies
+
+### 6. Utilities Module (`core/utils/env.py`)
 
 **Purpose**: Simple .env file parsing without external dependencies.
 

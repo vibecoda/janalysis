@@ -101,39 +101,77 @@ data/
 
 ## Repository Structure
 ```
-jqsys/                       # Main installable package (moved from src/)
+jqsys/                       # Main installable package
   __init__.py
-  auth.py                    # Token exchange/refresh using `.env`.
-  client.py                  # Thin API client, retries, backoff.
-  utils/                     # Utilities (env handling, calendar, logger, config)
-    env.py
-  endpoints/                 # (Future) Endpoint-specific fetchers/parsers.
-  storage/                   # (Future) IO abstractions for Parquet/DuckDB.
-  transform/                 # (Future) Prices, CA, fundamentals transforms.
-  features/                  # (Future) Momentum, value, quality, size, volatility.
-  recommend/                 # (Future) Ranker and portfolio construction.
-  backtest/                  # (Future) Engine, metrics, reports.
-scripts/                     # CLI scripts using jqsys package
-  jq_auth.py                 # Authentication demo
-  jq_daily_quotes.py         # Daily price fetching
-  jq_fins_announcement.py    # Financial announcements
-  jq_fins_statements.py      # Financial statements
-  jq_listed_info.py          # Listed company info
-  jq_trading_calendar.py     # Trading calendar
+  core/                      # Core infrastructure
+    storage/                 # Storage abstraction layer
+      blob.py                # Blob storage interface
+      object.py              # Object storage interface
+      registry.py            # Backend registry
+      backends/              # Storage backend implementations
+        filesystem_backend.py
+        minio_backend.py
+        mongodb_backend.py
+        prefixed_backend.py
+    utils/                   # Core utilities
+      config.py              # Configuration management
+      env.py                 # Environment file utilities
+  data/                      # Data ingestion and processing
+    auth.py                  # J-Quants authentication
+    client.py                # J-Quants API client with retries
+    ingest.py                # Data ingestion pipelines
+    layers/                  # Data lake layers
+      bronze.py              # Raw data storage (bronze layer)
+      silver.py              # Normalized timeseries (silver layer)
+      gold.py                # Feature-engineered data (gold layer)
+      query.py               # DuckDB analytical queries
+  fin/                       # Financial analysis modules
+    stock.py                 # Stock and portfolio analysis
+  (future modules...)
+    transform/               # Prices, CA, fundamentals transforms
+    features/                # Momentum, value, quality, size, volatility
+    recommend/               # Ranker and portfolio construction
+    backtest/                # Engine, metrics, reports
+scripts/                     # CLI and automation scripts
+  api/                       # J-Quants API scripts
+    jq_auth.py               # Authentication demo
+    jq_daily_quotes.py       # Daily price fetching
+    jq_fins_announcement.py  # Financial announcements
+    jq_fins_statements.py    # Financial statements
+    jq_listed_info.py        # Listed company info
+    jq_trading_calendar.py   # Trading calendar
+  batch/                     # Batch processing scripts
+    ingest_daily_quotes.py   # Ingest daily quotes to bronze
+    normalize_daily_quotes.py # Normalize to silver layer
+    transform_daily_prices.py # Transform to gold layer
+    ingest_listed_info.py    # Ingest company listings
+  demo/                      # Demo and example scripts
+    demo_storage_apis.py     # Storage layer demonstrations
+    demo_stock_api.py        # Stock API demonstrations
+    demo_registry.py         # Backend registry examples
+    demo_filesystem_storage.py # Filesystem backend demo
   (future scripts...)
-  backfill.py
-  daily_update.py
-  run_backtest.py
-pyproject.toml               # Package configuration for installation
-configs/                     # (Future) Configuration files
+    backfill.py
+    daily_update.py
+    run_backtest.py
+pyproject.toml               # Package configuration
+configs/                     # Configuration files
+  (future config files...)
   ingest.yml
   features.yml
   portfolio.yml
   backtest.yml
-data/                        # (Future) Data storage
-  bronze/
-  silver/
-  gold/
+notebooks/                   # Jupyter notebooks
+  (example notebooks...)
+docs/                        # Documentation
+  AGENTS.md                  # Repository guidelines
+  project_plan.md            # This file
+  (other docs...)
+tests/                       # Pytest test suite
+  test_auth.py
+  test_client.py
+  test_*_storage.py
+  (more tests...)
 ```
 
 ## Milestones & Timeline
