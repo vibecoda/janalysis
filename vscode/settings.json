@@ -15,5 +15,8 @@
             ]
         }
     },
+    "terminal.integrated.env.osx": {
+        "IPYTHONDIR": "${workspaceFolder}/.ipython"
+    },
     "terminal.integrated.defaultProfile.osx": "Bash + IPython (venv-aware)"
 }
